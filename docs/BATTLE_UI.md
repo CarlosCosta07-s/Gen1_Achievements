@@ -35,9 +35,9 @@ As versões também diferem no acabamento das bordas conforme a geração. O res
 ## Fluxo funcional
 
 - **Ações:** Fight, Bag, Pokémon e Run são enviadas como escolhas `menu`.
-- **Golpes:** quatro cartões exibem o nome na faixa superior e tipo/PP na faixa inferior; golpes desabilitados ou sem PP não podem ser confirmados.
+- **Golpes:** até quatro cartões exibem o nome na faixa superior e tipo/PP na faixa inferior; golpes explicitamente desabilitados ou com PP numérico igual a zero não podem ser confirmados. PP ausente é mostrado como desconhecido (`--/--`), não como zero.
 - **Legibilidade:** os textos dos cartões são escalados proporcionalmente à largura disponível, preservando nomes e tipos longos (como Electric e Fighting) sem colidir com o indicador de PP.
-- **Alvos:** quando a API fornece `targets`, o painel mostra os battlers selecionáveis e envia o ID nativo do alvo.
+- **Alvos:** somente o adaptador da terceira geração expõe `targets`; o painel mostra os battlers disponíveis e envia o ID nativo, sem confundir IDs esparsos com a posição visual do cartão.
 - **Voltar:** B envia a intenção `back` para sair da seleção de golpe/alvo.
 - **Bag e Pokémon:** continuam abrindo os menus nativos da geração. O mod não reimplementa uso de item, captura, troca ou troca forçada.
 
@@ -58,4 +58,4 @@ O painel captura entrada somente enquanto uma fase controlável (`menu`, `moves`
 
 O painel inferior nativo é ocultado por `battle.bottom_ui_visible` nas versões que expõem esse hook. Em versões sem esse ponto de extensão, o painel vetorial cobre a região inferior em `render.hud` sem substituir a HUD superior. O motor continua sendo a autoridade sobre as regras e a execução das escolhas.
 
-O harness verifica esse fluxo usando snapshots sintéticos. A confirmação final exige testes visuais e de comandos nas onze versões executáveis.
+O contrato tem diferenças entre gerações: Gen 1 usa `curMoves` e `moveSelect`; Gen 2 usa `moves` e `moves`; Gen 3 preserva o número original do slot de cada golpe e pode expor PP ausente, além de IDs de battler não contíguos na seleção de alvo. O painel respeita o `slot` e o ID nativos quando fornecidos. O harness exercita essas diferenças com snapshots sintéticos, incluindo PP desconhecido, PP zero, slot não sequencial e alvos esparsos. A confirmação final ainda exige testes visuais e de comandos nas onze versões executáveis.
