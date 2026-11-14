@@ -28,7 +28,9 @@
     "battle_select": "A: SELECT",
     "battle_back": "B: BACK",
     "battle_no_moves": "NO USABLE MOVES",
-    "battle_pp": "PP"
+    "battle_pp": "PP",
+    "battle_item": "ITEM",
+    "battle_pack": "PACK"
   },
   "pt-BR": {
     "menu": "CONQUISTAS",
@@ -59,7 +61,9 @@
     "battle_select": "A: SELECIONAR",
     "battle_back": "B: VOLTAR",
     "battle_no_moves": "SEM GOLPES USÁVEIS",
-    "battle_pp": "PP"
+    "battle_pp": "PP",
+    "battle_item": "ITEM",
+    "battle_pack": "BOLSA"
   },
   "es": {
     "menu": "LOGROS",
@@ -90,6 +94,8 @@
     "battle_select": "A: ELEGIR",
     "battle_back": "B: VOLVER",
     "battle_no_moves": "SIN MOVIMIENTOS",
-    "battle_pp": "PP"
+    "battle_pp": "PP",
+    "battle_item": "OBJETO",
+    "battle_pack": "MOCHILA"
   }
 }
