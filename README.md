@@ -18,6 +18,10 @@ A interface usa os hooks oficiais da Portable Mod API 3. O item de conquistas, a
 
 As opções do Gen1 Achievements ficam no **gerenciador de MODS dentro do jogo**. No Gen 1, o gerenciador é aberto pelo atalho F10; no Gen 2 e Gen 3, pelo menu START → MODS. A configuração de idioma continua nessa área e não será duplicada nas opções gerais do jogo.
 
+## Configurações dos jogos
+
+O mod reorganiza a ordem das opções nativas dentro das categorias existentes de áudio, vídeo, gráficos, batalha, velocidade e extras. As categorias e o visual continuam pertencendo a cada jogo: não são substituídos fontes, cores, molduras, ícones, animações ou controles. Linhas de outros mods permanecem no lugar. As opções do próprio Gen1 Achievements continuam somente no gerenciador MODS dentro do jogo.
+
 ## Jogos e perfis
 
 Os onze jogos têm catálogos e arquivos de progresso independentes:
@@ -44,11 +48,11 @@ Cada jogo contém entre 17 e 20 conquistas de Pokédex, evolução, batalhas, in
 ## Arquivos principais
 
 - `manifest.json` — Portable Mod API 3 e os onze jogos.
-- `main.lua` — menu START, tela, persistência, eventos e notificações.
+- `main.lua` — menu START, organização das opções nativas, tela, persistência, eventos e notificações.
 - `data/achievements.tsv` — catálogo localizado.
 - `data/games.json` — títulos e ordem dos jogos.
 - `data/ui_locales.tsv` — textos de interface carregados pelo mod.
-- `data/ui_locales.json` — espelho legível das mesmas traduções para ferramentas e futuras integrações.
+- `data/ui_locales.json` — espelho legível das traduções para ferramentas de validação.
 - `docs/` — arquitetura, armazenamento, integridade e contrato dos eventos.
 - `tests/validate_catalog.py` — validação estrutural e de traduções.
 - `tests/validate_engine_contract.py` — verificação de eventos, campos e tipos contra a revisão fixada do motor.
@@ -67,7 +71,7 @@ luajit tests/runtime_harness.lua
 
 O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores e limites equilibrados de 17–20 conquistas por jogo. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
 
-O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 205 linhas do catálogo. Também executa o hook do menu START, verifica a preservação de itens de outros mods, aciona a tela, percorre filtros, testa a rolagem de cinco linhas, abre detalhes e fecha a tela com B/START. A camada visual verifica os onze títulos nos três idiomas e que conquistas secretas só revelem título e descrição após o evento legítimo de desbloqueio. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
+O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 205 linhas do catálogo. Também executa os hooks do menu START e das opções do jogo, verifica a posição da entrada do mod, a ordenação interna das categorias de opções nos onze títulos, a preservação de linhas de outros mods e a permanência da configuração de idioma no gerenciador MODS. A camada visual percorre filtros, rolagem, detalhes, saída da tela, os onze títulos e os três idiomas; também verifica que conquistas secretas só revelem título e descrição após o evento legítimo de desbloqueio. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
 
 Esses testes automatizados não substituem testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 
