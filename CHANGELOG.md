@@ -1,3 +1,10 @@
+## 0.5.13 — Indicadores de condições de estado
+
+- Adicionados indicadores compactos de estado aos cartões de alvo para SLP, PSN, BRN, FRZ, PAR e TOX, usando valores normalizados pela API pública.
+- Diferenciadas as condições por cores; o nome do Pokémon e o marcador de papel continuam visíveis.
+- Ignorados estados desconhecidos ou ausentes, sem inferir condições a partir do HP.
+- Ampliado o runtime harness para validar os seis estados reconhecidos e a ausência de indicadores para valores desconhecidos.
+
 ## 0.5.12 — HP visual dos alvos em batalha
 
 - Adicionadas barras compactas de HP aos cartões de alvo quando a API pública fornece HP atual e máximo válidos.

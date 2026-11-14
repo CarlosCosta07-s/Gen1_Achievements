@@ -1234,10 +1234,10 @@ double_target_env:set_battle_snapshot({
     active = 2, target = 0, targets = { 0, 1, 2, 3 },
     player = { name = "RAICHU", hp = 45, maxHp = 60 },
     battlers = {
-        { id = 0, side = "player", name = "PIKACHU", hp = 40, maxHp = 40, active = true },
-        { id = 1, side = "enemy", name = "GASTLY", hp = 25, maxHp = 50, active = true },
-        { id = 2, side = "player", name = "RAICHU", hp = 15, maxHp = 60, active = true },
-        { id = 3, side = "enemy", name = "ONIX", hp = 0, maxHp = 55, active = true },
+        { id = 0, side = "player", name = "PIKACHU", hp = 40, maxHp = 40, status = "SLP", active = true },
+        { id = 1, side = "enemy", name = "GASTLY", hp = 25, maxHp = 50, status = "PSN", active = true },
+        { id = 2, side = "player", name = "RAICHU", hp = 15, maxHp = 60, status = "BRN", active = true },
+        { id = 3, side = "enemy", name = "ONIX", hp = 0, maxHp = 55, status = "FRZ", active = true },
     },
     enemy = {}, party = {}, moves = {}, items = {},
 })
@@ -1252,8 +1252,12 @@ check(double_target_rendered:find("ATIVO: RAICHU", 1, true) ~= nil
     and double_target_rendered:find("HP 45/60", 1, true) ~= nil
     and double_target_rendered:find("ATIVO", 1, true) ~= nil
     and double_target_rendered:find("ALIADO", 1, true) ~= nil
-    and double_target_rendered:find("INIMIGO", 1, true) ~= nil,
-    "double-battle UI did not identify the active Pokémon, its HP, partner and opponents")
+    and double_target_rendered:find("INIMIGO", 1, true) ~= nil
+    and double_target_rendered:find("SLP", 1, true) ~= nil
+    and double_target_rendered:find("PSN", 1, true) ~= nil
+    and double_target_rendered:find("BRN", 1, true) ~= nil
+    and double_target_rendered:find("FRZ", 1, true) ~= nil,
+    "double-battle UI omitted actor, HP, role or recognized target status indicators")
 local double_health_fill = false
 for _, call in ipairs(battle_draw_calls) do
     if call.kind == "rectangle" and call.mode == "fill"
@@ -1300,6 +1304,31 @@ for _, call in ipairs(battle_draw_calls) do
 end
 check(invalid_target_tracks == 0,
     "invalid or missing target HP values produced an estimated health meter")
+
+local extra_status_env = make_environment("emerald")
+extra_status_env:set_battle_snapshot({
+    prompt = "target", kind = "trainer", revision = 34,
+    targets = { 0, 1, 2 },
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    battlers = {
+        { id = 0, side = "player", name = "SNORLAX", status = "PAR" },
+        { id = 1, side = "enemy", name = "GENGAR", status = "TOX" },
+        { id = 2, side = "enemy", name = "MYSTERY", status = "CONFUSED" },
+    },
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+extra_status_env:run_hook(
+    "render.hud", nil, extra_status_env.game, base_viewport
+)
+local extra_status_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then extra_status_text[#extra_status_text + 1] = call.value end
+end
+local extra_status_rendered = table.concat(extra_status_text, "\n")
+check(extra_status_rendered:find("PAR", 1, true) ~= nil
+    and extra_status_rendered:find("TOX", 1, true) ~= nil
+    and extra_status_rendered:find("CONFUSED", 1, true) == nil,
+    "paralysis/toxic status badges were omitted or an unknown status was displayed")
 
 local no_actor_hp_env = make_environment("emerald")
 no_actor_hp_env:set_battle_snapshot({

@@ -949,6 +949,23 @@ return function(mod)
         MYSTERY = { 0.48, 0.53, 0.59 },
     }
 
+    -- UnifiedRecords exposes these normalized status abbreviations in the
+    -- public battle snapshot. Unknown values are intentionally not displayed.
+    local BATTLE_STATUS_CHIPS = {
+        SLP = { label = "SLP", color = { 0.30, 0.42, 0.70, 1 } },
+        SLEEP = { label = "SLP", color = { 0.30, 0.42, 0.70, 1 } },
+        PSN = { label = "PSN", color = { 0.63, 0.34, 0.74, 1 } },
+        POISON = { label = "PSN", color = { 0.63, 0.34, 0.74, 1 } },
+        BRN = { label = "BRN", color = { 0.83, 0.30, 0.18, 1 } },
+        BURN = { label = "BRN", color = { 0.83, 0.30, 0.18, 1 } },
+        FRZ = { label = "FRZ", color = { 0.22, 0.65, 0.82, 1 } },
+        FREEZE = { label = "FRZ", color = { 0.22, 0.65, 0.82, 1 } },
+        PAR = { label = "PAR", color = { 0.84, 0.68, 0.20, 1 } },
+        PARALYZE = { label = "PAR", color = { 0.84, 0.68, 0.20, 1 } },
+        TOX = { label = "TOX", color = { 0.48, 0.23, 0.64, 1 } },
+        TOXIC = { label = "TOX", color = { 0.48, 0.23, 0.64, 1 } },
+    }
+
     local BATTLE_ACTIONS = {
         fight = { key = "fight", label = "battle_fight" },
         item = { key = "item", label = "battle_bag" },
@@ -1631,11 +1648,26 @@ return function(mod)
         graphics.setColor(theme.shade[1], theme.shade[2], theme.shade[3], 1)
         graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
 
-        local text_width = rect.w - 8
+        local statusChip
+        if metadata and type(metadata.status) == "string" then
+            statusChip = BATTLE_STATUS_CHIPS[metadata.status:upper()]
+        end
+        local statusWidth = statusChip and 22 or 0
+        local text_width = rect.w - 8 - (statusWidth > 0 and statusWidth + 4 or 0)
         local label_scale = math.min(1, text_width / math.max(1,
             glyph_count(tostring(label or ""), mod.ui.Font) * 6))
         draw_battle_text(graphics, label, rect.x + 4, rect.y + 2,
             text_width, "left", foreground, 13, label_scale)
+
+        if statusChip then
+            local chipX, chipY = rect.x + rect.w - statusWidth - 4, rect.y + 2
+            graphics.setColor(statusChip.color[1], statusChip.color[2],
+                statusChip.color[3], statusChip.color[4])
+            graphics.rectangle("fill", chipX, chipY, statusWidth, 7,
+                theme.radius, theme.radius)
+            draw_battle_text(graphics, statusChip.label, chipX + 1, chipY,
+                statusWidth - 2, "center", { 1, 1, 1, 1 }, 9, 1)
+        end
 
         if metadata and type(metadata.hpRatio) == "number" then
             local ratio = math.max(0, math.min(1, metadata.hpRatio))
@@ -1852,9 +1884,10 @@ return function(mod)
                     end
                     local role = roleKey and dictionary[roleKey] or nil
                     local hpRatio = target and battle_hp_ratio(target) or nil
+                    local status = target and target.status or nil
                     local metadata
-                    if role ~= nil or hpRatio ~= nil then
-                        metadata = { tag = role, hpRatio = hpRatio }
+                    if role ~= nil or hpRatio ~= nil or status ~= nil then
+                        metadata = { tag = role, hpRatio = hpRatio, status = status }
                     end
                     draw_battle_card(graphics, rect, tostring(name),
                         theme, selected, target and target.absent == true, metadata)
