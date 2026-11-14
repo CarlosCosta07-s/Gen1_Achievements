@@ -973,8 +973,16 @@ return function(mod)
         local gameId = game_id_from(game) or "red"
         local order = BATTLE_ACTION_ORDER[gameId] or BATTLE_ACTION_ORDER.red
         local actions = {}
+        local itemLabel = gameId == "red" or gameId == "blue" or gameId == "yellow"
+            and "battle_item"
+            or (gameId == "gold" or gameId == "silver" or gameId == "crystal")
+                and "battle_pack" or "battle_bag"
         for _, id in ipairs(order) do
-            actions[#actions + 1] = BATTLE_ACTIONS[id]
+            local action = BATTLE_ACTIONS[id]
+            actions[#actions + 1] = {
+                key = action.key,
+                label = id == "item" and itemLabel or action.label,
+            }
         end
         return actions
     end
