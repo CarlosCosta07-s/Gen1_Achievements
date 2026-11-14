@@ -1,7 +1,7 @@
 {
   "id": "gen1_achievements",
   "name": "Gen1 Achievements",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "api": 3,
   "entry": "main.lua",
   "profile": "content",
