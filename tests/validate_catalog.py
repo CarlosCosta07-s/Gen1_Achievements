@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Gen1 Achievements' per-title catalog and localization contract."""
+"""Validate the localized catalog, event coverage and balanced per-title totals."""
 
 from __future__ import annotations
 
@@ -14,22 +14,38 @@ GAMES = [
     "firered", "leafgreen", "ruby", "sapphire", "emerald",
 ]
 LANGUAGES = ["en", "pt-BR", "es"]
-OPERATORS = {"any", "equals", "at_least", "truthy"}
+OPERATORS = {"any", "equals", "at_least", "truthy", "one_of", "one_of_true", "ends_with"}
 MODES = {"instant", "counter"}
-EVENTS = {
-    "pokemon.caught",
-    "pokemon.level_up",
-    "pokemon.evolved",
-    "pokemon.move_learned",
-    "battle.ended",
-    "battle.started",
-    "map.entered",
+BASE_EVENTS = {
+    "pokemon.caught", "pokemon.level_up", "pokemon.evolved",
+    "pokemon.move_learned", "battle.ended", "battle.started",
+    "map.entered", "flag.changed",
 }
+GEN2_EVENTS = {
+    "bug_contest.scored", "unown.unlocked", "apricorn.converted",
+    "egg.hatched", "pokerus.infected", "happiness.changed",
+}
+GEN3_EVENTS = {"egg.hatched", "pokerus.infected", "happiness.changed"}
+SUPPORTED_EVENTS = {}
+for game in ("red", "blue", "yellow"):
+    SUPPORTED_EVENTS[game] = BASE_EVENTS
+for game in ("gold", "silver", "crystal"):
+    SUPPORTED_EVENTS[game] = BASE_EVENTS | GEN2_EVENTS
+for game in ("firered", "leafgreen", "ruby", "sapphire", "emerald"):
+    SUPPORTED_EVENTS[game] = BASE_EVENTS | GEN3_EVENTS
 
 
 def load_json(relative: str):
     with (ROOT / relative).open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def valid_field_path(value: str) -> bool:
+    if value == "*":
+        return True
+    if not value or value.startswith(".") or value.endswith(".") or ".." in value:
+        return False
+    return all(part.replace("_", "").isalnum() for part in value.split("."))
 
 
 def validate_catalog() -> int:
@@ -57,7 +73,7 @@ def validate_catalog() -> int:
             f"{language}: missing localized UI strings"
         )
 
-    locale_rows: dict[str, dict[str, str]] = {language: {} for language in LANGUAGES}
+    locale_rows = {language: {} for language in LANGUAGES}
     with (ROOT / "data/ui_locales.tsv").open("r", encoding="utf-8") as handle:
         for raw in handle:
             line = raw.rstrip("\r\n")
@@ -77,8 +93,8 @@ def validate_catalog() -> int:
             f"{language}: JSON and TSV locale catalogs differ"
         )
 
-    seen: set[str] = set()
-    ids_by_game: dict[str, list[str]] = {game: [] for game in GAMES}
+    seen = set()
+    ids_by_game = {game: [] for game in GAMES}
     rows = 0
     with (ROOT / "data/achievements.tsv").open("r", encoding="utf-8") as handle:
         for line_number, raw in enumerate(handle, start=1):
@@ -97,18 +113,24 @@ def validate_catalog() -> int:
             assert achievement_id and achievement_id.replace("_", "").replace("-", "").isalnum()
             assert achievement_id not in seen, f"duplicate achievement id: {achievement_id}"
             seen.add(achievement_id)
-            assert event in EVENTS, f"row {line_number}: unverified event {event!r}"
-            assert match_field == "*" or (
-                match_field
-                and not match_field.startswith(".")
-                and not match_field.endswith(".")
-                and ".." not in match_field
-                and all(part.replace("_", "").isalnum()
-                        for part in match_field.split("."))
-            ), f"row {line_number}: invalid event field path"
+            assert event in SUPPORTED_EVENTS[game], (
+                f"row {line_number}: {event!r} is not available for {game}"
+            )
+            assert valid_field_path(match_field), (
+                f"row {line_number}: invalid event field path {match_field!r}"
+            )
             assert operator in OPERATORS, f"row {line_number}: invalid operator"
             if operator == "equals":
                 assert match_value != "", f"row {line_number}: equals requires a value"
+            if operator in {"one_of", "one_of_true"}:
+                values = match_value.split("|")
+                assert all(values) and len(values) == len(set(values)), (
+                    f"row {line_number}: one_of needs unique, nonempty pipe-separated values"
+                )
+            if operator == "ends_with":
+                assert match_field == "mapId" and match_value.strip(), (
+                    f"row {line_number}: ends_with is reserved for nonempty mapId suffixes"
+                )
             assert mode in MODES, f"row {line_number}: invalid mode"
             assert secret in {"true", "false"}
             assert all(value.strip() for value in (
@@ -120,20 +142,32 @@ def validate_catalog() -> int:
                     f"row {line_number}: counter target must be a positive integer"
                 )
             else:
-                assert target in {"", "0"}, f"row {line_number}: instant target must be empty"
+                assert target in {"", "0"}, (
+                    f"row {line_number}: instant target must be empty"
+                )
 
             ids_by_game[game].append(achievement_id)
             rows += 1
 
     for game in GAMES:
-        assert ids_by_game[game], f"{game}: expected at least one achievement"
+        count = len(ids_by_game[game])
+        assert 17 <= count <= 20, (
+            f"{game}: expected a balanced catalog of 17–20 achievements, got {count}"
+        )
         assert catalog_data["games"][game] == ids_by_game[game], (
             f"{game}: JSON index does not match achievements.tsv"
         )
 
+    # Limited-time distribution and online-only events are intentionally not
+    # admitted in the event allowlist above.
+    forbidden_events = {"trade.completed", "pokemon.received", "link.connected"}
+    assert not any(forbidden_events & events for events in SUPPORTED_EVENTS.values())
+
     print(
         f"Catalog contract OK: {len(GAMES)} independent games, "
-        f"{rows} achievements, {len(LANGUAGES)} languages."
+        f"{rows} achievements ({min(map(len, ids_by_game.values()))}–"
+        f"{max(map(len, ids_by_game.values()))} per game), "
+        f"{len(LANGUAGES)} languages."
     )
     return 0
 

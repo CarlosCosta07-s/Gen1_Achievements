@@ -21,7 +21,7 @@ O nome deve ser reconhecível por quem conhece Pokémon sem ser uma descrição 
 
 ## Pesquisa e rastreabilidade
 
-Cada conquista futura terá uma nota interna com:
+Cada conquista terá uma nota interna com:
 - jogo ao qual pertence;
 - referência identificada;
 - motivo da relação com a condição;
@@ -30,6 +30,11 @@ Cada conquista futura terá uma nota interna com:
 A comunidade será usada como fonte de ideias e contexto, não como autoridade exclusiva sobre fatos do jogo. Referências controversas ou memes de curta duração devem ser revisados antes de entrar no catálogo.
 
 
-## Primeira rodada
+## Histórico do catálogo
 
-A primeira rodada está registrada em `docs/RESEARCH_REFERENCES.md`. Ela contém uma conquista por título, usa as três línguas obrigatórias e não compartilha IDs nem progresso entre versões.
+A primeira rodada está registrada em `docs/RESEARCH_REFERENCES.md`. As expansões seguintes mantêm as três línguas obrigatórias e não compartilham IDs nem progresso entre versões.
+
+
+## Escala do catálogo
+
+O objetivo é manter aproximadamente 17–20 conquistas por versão. A prioridade é cobrir marcos reconhecíveis e atividades repetíveis ou únicas que fazem parte da partida normal, evitando uma lista enorme de microtarefas. Cada título mantém seus próprios IDs, condições e progresso.

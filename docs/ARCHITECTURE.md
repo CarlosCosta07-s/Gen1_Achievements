@@ -20,7 +20,7 @@ A tela implementa:
 - progresso numérico em objetivos incrementais;
 - notificação curta na tela após o desbloqueio.
 
-O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`. A primeira rodada usa `pokemon.caught` nas versões correspondentes e `pokemon.level_up` com `mon.species=PIKACHU` em Yellow.
+O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`. A primeira versão expandida usa eventos reais de captura, evolução, batalha, mudança de flag, entrada em mapa, reprodução, amizade, Pokérus e mecânicas exclusivas de Johto.
 
 ## Fonte de dados
 
@@ -30,7 +30,7 @@ O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o e
 2. id
 3. event
 4. match_field
-5. operator (`any`, `equals`, `at_least`, `truthy`)
+5. operator (`any`, `equals`, `at_least`, `truthy`, `one_of`, `one_of_true`, `ends_with`)
 6. match_value
 7. mode (`instant` ou `counter`)
 8. target
@@ -42,13 +42,17 @@ O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o e
 14. title_es
 15. description_es
 
-Para `operator=any`, use `*` em `match_field`. Os campos também aceitam caminhos aninhados, como `mon.species`. Em modo `counter`, cada ocorrência que satisfaz a condição incrementa o valor persistido até `target`.
+Para `operator=any`, use `*` em `match_field`. Os campos também aceitam caminhos aninhados, como `mon.species`. `one_of` compara o campo com uma lista separada por `|`; `one_of_true` faz o mesmo e exige que `event.value == true`, para contar apenas a ativação real de uma flag; `ends_with` identifica mapas pelo sufixo estável de `mapId`, sem depender do prefixo específico de cada jogo. Em modo `counter`, cada ocorrência que satisfaz a condição incrementa o valor persistido até `target`.
 
-Eventos disponíveis na referência incluem `pokemon.caught`, `pokemon.level_up`, `pokemon.evolved`, `pokemon.move_learned`, `battle.ended`, `battle.started` e `map.entered`; o mod valida a disponibilidade do evento antes de assinar.
+Eventos usados incluem `pokemon.caught`, `pokemon.level_up`, `pokemon.evolved`, `pokemon.move_learned`, `battle.ended`, `map.entered`, `flag.changed`, `egg.hatched`, `happiness.changed`, `pokerus.infected` e eventos exclusivos de Johto. O validador mantém uma matriz de disponibilidade por geração.
 
 ## Persistência e identidade
 
-O perfil de conquistas é por instalação e por título, não por save:
+O perfil de conquistas é por instalação e por título, não por save. O formato 2 verifica cada ID e progresso contra o catálogo atual e descarta perfis malformados ou IDs de outro jogo; perfis legados do formato 1 são lidos e regravados no formato 2 na próxima atualização persistida. Isso detecta corrupção e edições casuais, mas não é assinatura criptográfica contra alguém que modifique o código ou o próprio cache.
+
+A proteção contra manipulação do save é baseada no fluxo de eventos: `save.loading` desativa os desbloqueios, `save.loaded` e `save.created` reativam a sessão, e o mod nunca concede conquistas lendo flags antigas do save. Uma edição de `.sav` que apenas marque uma insígnia ou capture um Pokémon não cria, por si só, o evento de ação ao vivo necessário para desbloquear a conquista. No Gen 1, `flag.changed.name` é textual; no Gen 2, é numérico; no Gen 3, o motor fornece o nome resolvido e também o ID numérico. O comparador aceita essas formas sem depender de um scan do save.
+
+Armazenamento:
 - `mod.cache:read/write("profiles/red.dat")`, por exemplo;
 - cada uma das onze versões usa um caminho separado;
 - começar um New Game não reinicia conquistas do mesmo título;

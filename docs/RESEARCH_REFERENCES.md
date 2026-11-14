@@ -71,3 +71,54 @@ Este documento registra as referências usadas na criação dos primeiros nomes.
 - FireRed e LeafGreen usam capturas em Mt. Ember, mas os alvos são diferentes.
 - Ruby, Sapphire e Emerald usam Groudon, Kyogre e Rayquaza, respectivamente.
 - Cada jogo mantém sua própria conquista, ainda que a referência pertença a uma mesma dupla ou geração.
+
+ 
+## Segunda rodada — progressão normal e conteúdo acessível
+
+A expansão prioriza conteúdo que um jogador pode alcançar numa partida normal, sem depender de distribuição temporária.
+
+### Kanto — Pokémon Red, Blue e Yellow
+
+- Os oito ginásios, o rival no Planalto Índigo, a Torre Pokémon, Silph Co., Seafoam Islands, Power Plant, as aves lendárias e Mewtwo formam o eixo de história, exploração e pós-jogo.
+- Os títulos das aves fazem referência ao local de encontro; Mewtwo remete à história dos experimentos e à Cerulean Cave.
+- Comunidade: https://www.reddit.com/r/PokemonRed/comments/1ru3iww/catching_khangaskhan_or_schyther_how_the_fck_do_u/
+- Comunidade: https://www.reddit.com/r/pokemon/comments/1q5lymv/the_most_legendary_and_iconic_scene_from_the/
+
+### Johto — Pokémon Gold, Silver e Crystal
+
+- O catálogo reconhece os dois circuitos completos de ginásios (Johto e Kanto), a batalha com Lance, os cães lendários errantes, os ovos, o Bug-Catching Contest, as formas de Unown e os Apricorns trabalhados por Kurt.
+- A ida a Kanto é um dos momentos mais lembrados da geração; há relatos de jogadores destacando a surpresa de encontrar a região e completar as 16 insígnias.
+- Comunidade: https://www.reddit.com/r/pokemon/comments/1w8i4c7/johto_still_has_the_best_vibe_in_pokemon_games/
+- Comunidade: https://www.reddit.com/r/pokemon/comments/828hs1/near_post_game_thoughts_pokemon_crystal/
+- Comunidade: https://www.reddit.com/r/pokemon/comments/1ffm0sz/
+- A busca por Suicune em Crystal tem seu próprio arco com Eusine; isso continua sendo uma captura normal do jogo, sem ticket.
+
+### FireRed e LeafGreen — pós-jogo das Ilhas Sevii
+
+- A expansão contempla a linha normal de história das Ilhas Sevii, Icefall Cave, Tanoby Ruins e Trainer Tower, além do trio de aves, Mewtwo e o cão errante escolhido pela inicial.
+- Discussões recentes da comunidade lembram que o pós-jogo depende de completar o Pokédex regional e a missão de Ruby/Sapphire para Celio; o cão lendário passa a vagar por Kanto depois dessa progressão.
+- Comunidade: https://www.reddit.com/r/PokemonFireRed/comments/1ra3ye5/post_elite_four/
+- Comunidade: https://www.reddit.com/r/PokemonFireRed/comments/1fc32x8/
+- Comunidade: https://www.reddit.com/r/pokemon/comments/1rbmy2u/for_those_of_you_who_will_pick_squirtle_or/
+- **Excluído deliberadamente:** Navel Rock, Birth Island, Aurora Ticket, Mystic Ticket e encontros de distribuição. Discussões distinguem esses encontros dos conteúdos disponíveis em cartucho sem a distribuição.
+
+### Hoenn — Pokémon Ruby, Sapphire e Emerald
+
+- O catálogo cobre os três Regis, o Latios/Latias errante, os puzzles de braille (Desert Ruins, Island Cave e Ancient Tomb), Sky Pillar, Seafloor Cavern, ovos, Pokérus, amizade e obtenção de fitas.
+- Concursos, Pokéblocks, Battle Frontier e Secret Bases são atividades normais importantes, mas não recebem uma conquista própria nesta versão porque a API atual não fornece um evento público específico e confiável para cada uma delas. Não substituímos isso por uma condição inventada.
+- Comunidade: https://www.reddit.com/r/PokemonEmerald/comments/1dlcptc/
+- Comunidade: https://www.reddit.com/r/pokemon/comments/1w8i4c7/johto_still_has_the_best_vibe_in_pokemon_games/
+- Comunidade: https://www.reddit.com/r/PokemonEmerald/comments/1lgkx2o
+- Comunidade: https://www.reddit.com/r/pokemon/comments/qws5x3/the_sky_pillar_puzzle_in_pok%C3%A9mon_emerald_was/
+
+## Eventos deliberadamente fora do catálogo
+
+Não existem conquistas para Mystery Gift, Eon Ticket, Aurora Ticket, Mystic Ticket, Old Sea Map, Navel Rock, Birth Island, Deoxys por distribuição, Celebi por distribuição, trocas online, link battles ou conteúdo de eventos cujo acesso dependia de uma distribuição encerrada. O objetivo é que todas as conquistas possam ser obtidas na versão normal do jogo sem depender de uma campanha promocional antiga.
+
+## Critérios técnicos da segunda rodada
+
+- Contadores de Pokédex usam `pokemon.caught.isNew`, evitando somar capturas repetidas da mesma espécie.
+- Insígnias e progresso de história usam `flag.changed` apenas com `value=true`; nunca são concedidas por leitura de flags pré-existentes no carregamento.
+- Capturas especiais usam `pokemon.caught`; evolução e aprendizado de golpes usam eventos dedicados.
+- Recursos de Johto e Gen 3 (ovos, amizade e Pokérus) só aparecem nos jogos em que a API declara esses eventos.
+- Bug-Catching Contest, Unown e Apricorns só aparecem em Gold, Silver e Crystal.

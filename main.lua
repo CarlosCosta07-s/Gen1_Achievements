@@ -7,7 +7,7 @@ local SCREEN_ID = "Gen1AchievementConsole"
 local LANGUAGE_OPTION = "achievement_language"
 local DEFAULT_LANGUAGE = "pt-BR"
 local CATALOG_PATH = "data/achievements.tsv"
-local PROFILE_FORMAT = "GEN1ACHIEVEMENTS1"
+local PROFILE_FORMAT = "GEN1ACHIEVEMENTS2"
 
 local GAME_IDS = {
     red = true,
@@ -60,6 +60,9 @@ local ALLOWED_OPERATORS = {
     equals = true,
     at_least = true,
     truthy = true,
+    one_of = true,
+    one_of_true = true,
+    ends_with = true,
 }
 
 local ALLOWED_MODES = {
@@ -317,33 +320,57 @@ return function(mod)
         mod.log:info("Loaded %d achievements for %d game versions", total, 11)
     end
 
-    local function decode_profile(bytes)
+    local function decode_profile(bytes, game_id)
         local profile = make_empty_profile()
-        if type(bytes) ~= "string" then return profile end
+        if type(bytes) ~= "string" then return profile, false end
 
         local first_line = true
+        local invalid = false
+        local seen_unlocked = {}
+        local seen_progress = {}
+
         for line in (bytes .. "\n"):gmatch("(.-)\n") do
             line = line:gsub("\r$", "")
             if first_line then
                 first_line = false
-                if line ~= PROFILE_FORMAT then
-                    return make_empty_profile()
+                if line ~= PROFILE_FORMAT and line ~= "GEN1ACHIEVEMENTS1" then
+                    invalid = true
+                    break
                 end
-            elseif line:sub(1, 2) == "U|" then
+            elseif line ~= "" and line:sub(1, 2) == "U|" then
                 local id = line:sub(3)
-                if valid_id(id) then
-                    profile.unlocked[id] = true
-                    profile.order[#profile.order + 1] = id
+                local achievement = catalog_by_id[id]
+                if not valid_id(id) or not achievement
+                    or achievement.game ~= game_id or seen_unlocked[id] then
+                    invalid = true
+                    break
                 end
-            elseif line:sub(1, 2) == "P|" then
+                seen_unlocked[id] = true
+                profile.unlocked[id] = true
+                profile.order[#profile.order + 1] = id
+            elseif line ~= "" and line:sub(1, 2) == "P|" then
                 local id, value = line:match("^P|([%w_-]+)|(%d+)$")
-                if id and value then
-                    profile.progress[id] = tonumber(value)
+                local achievement = id and catalog_by_id[id] or nil
+                local numeric = tonumber(value)
+                if not id or not achievement or achievement.game ~= game_id
+                    or achievement.mode ~= "counter" or seen_progress[id]
+                    or seen_unlocked[id] or not numeric or numeric < 1
+                    or numeric >= achievement.target then
+                    invalid = true
+                    break
                 end
+                seen_progress[id] = true
+                profile.progress[id] = numeric
+            elseif line ~= "" then
+                invalid = true
+                break
             end
         end
 
-        return profile
+        if first_line or invalid then
+            return make_empty_profile(), true
+        end
+        return profile, false
     end
 
     local function encode_profile(profile, game_id)
@@ -374,10 +401,15 @@ return function(mod)
 
         local path = "profiles/" .. game_id .. ".dat"
         local bytes, read_error = mod.cache:read(path)
-        local profile = decode_profile(bytes)
+        local profile, invalid_profile = decode_profile(bytes, game_id)
         profiles[game_id] = profile
 
-        if read_error and bytes == nil then
+        if invalid_profile then
+            mod.log:warn(
+                "Discarded malformed or catalog-incompatible achievement profile for %s",
+                game_id
+            )
+        elseif read_error and bytes == nil then
             mod.log:info("Starting a new local achievement profile for %s", game_id)
         end
         return profile
@@ -438,6 +470,14 @@ return function(mod)
         return value
     end
 
+    local function matches_pipe_value(actual, encoded)
+        if actual == nil or encoded == nil then return false end
+        for candidate in tostring(encoded):gmatch("[^|]+") do
+            if equal_values(actual, parse_scalar(candidate)) then return true end
+        end
+        return false
+    end
+
     local function event_matches(achievement, event)
         local actual = read_event_field(event, achievement.field)
 
@@ -451,14 +491,34 @@ return function(mod)
                 and tonumber(actual) >= tonumber(achievement.value)
         elseif achievement.operator == "truthy" then
             return actual == true
+        elseif achievement.operator == "one_of" then
+            return matches_pipe_value(actual, achievement.value)
+        elseif achievement.operator == "one_of_true" then
+            return event.value == true
+                and matches_pipe_value(actual, achievement.value)
+        elseif achievement.operator == "ends_with" then
+            return type(actual) == "string"
+                and type(achievement.value) == "string"
+                and #achievement.value > 0
+                and actual:sub(-#achievement.value) == achievement.value
         end
 
         return false
     end
 
+    -- Engine events are only counted during a ready gameplay session. A save
+    -- load is deliberately a quiet boundary: stored flags are state, not
+    -- evidence that the player performed those actions in this session.
+    local session_ready = false
+
     local function handle_event(event_name, event)
+        if not session_ready then return end
         event = type(event) == "table" and event or {}
         local game = live_game(event)
+        if type(event.game) == "table" and type(active_game) == "table"
+            and event.game ~= active_game then
+            return
+        end
         local game_id = game_id_from(game)
         if not game_id then return end
 
@@ -750,6 +810,24 @@ return function(mod)
             if type(event) == "table" then active_game = event.game end
             local game_id = game_id_from(active_game)
             if game_id then load_profile_for_game(game_id) end
+        end)
+    end
+
+    if mod:supports("events", "save.loading") then
+        mod.events:on("save.loading", function()
+            session_ready = false
+        end)
+    end
+
+    if mod:supports("events", "save.loaded") then
+        mod.events:on("save.loaded", function()
+            session_ready = true
+        end)
+    end
+
+    if mod:supports("events", "save.created") then
+        mod.events:on("save.created", function()
+            session_ready = true
         end)
     end
 
