@@ -18,6 +18,7 @@ A tela implementa:
 - navegação por lista e tela de detalhes;
 - conquistas secretas;
 - progresso numérico em objetivos incrementais;
+- instrução localizada para alternar filtros no rodapé da lista;
 - notificação curta na tela após o desbloqueio.
 
 O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`. O catálogo usa eventos reais de captura, evolução, batalha, mudança de flag, entrada em mapa, reprodução, amizade, Pokérus e mecânicas exclusivas de Johto.
