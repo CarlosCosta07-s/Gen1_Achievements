@@ -54,7 +54,7 @@ local function load_rows()
     return rows
 end
 
-local function make_environment(game_id, initial_cache)
+local function make_environment(game_id, initial_cache, language)
     local listeners = {}
     local emitted = {}
     local cache = initial_cache or {}
@@ -66,6 +66,7 @@ local function make_environment(game_id, initial_cache)
     local write_count = 0
     local fail_writes = false
     local pop_count = 0
+    local selected_language = language or "pt-BR"
     local game = {
         save = { version = game_id },
         input = {
@@ -85,7 +86,7 @@ local function make_environment(game_id, initial_cache)
     local mod = {}
     mod.options = {
         define = function() end,
-        get = function() return "pt-BR" end,
+        get = function() return selected_language end,
     }
     mod.cache = {
         read = function(_, path)
@@ -187,6 +188,9 @@ local function make_environment(game_id, initial_cache)
     end
     function env:set_write_failure(value)
         fail_writes = value
+    end
+    function env:set_language(value)
+        selected_language = value
     end
     function env:write_count()
         return write_count
@@ -545,6 +549,7 @@ check(ui_env.screens[screen_id] ~= nil,
 local base_menu = {
     { label = "POKEDEX" },
     { label = "SAVE" },
+    { label = "OTHER MOD ENTRY" },
     { label = "OPTION" },
     { label = "QUIT" },
 }
@@ -557,8 +562,9 @@ check(menu[1].label == "POKEDEX" and menu[2].label == "SAVE",
     "START menu hook changed the rows before SAVE")
 check(menu[3].label == "CONQUISTAS" and type(menu[3].onSelect) == "function",
     "achievement entry was not inserted immediately after SAVE")
-check(menu[4].label == "OPTION" and menu[5].label == "QUIT",
-    "achievement entry was not placed before the options row")
+check(menu[4].label == "OTHER MOD ENTRY"
+    and menu[5].label == "OPTION" and menu[6].label == "QUIT",
+    "achievement hook did not preserve another mod's menu entry")
 menu[3].onSelect()
 check(#ui_env.pushes == 1 and ui_env.pushes[1].game == ui_env.game
     and ui_env.pushes[1].id == screen_id,
@@ -581,7 +587,8 @@ check(draw_contains("CONQUISTAS") and draw_contains("PROGRESSO")
 ui_env:press("right")
 screen:update(0)
 check(draw_contains("< DESBLOQUEADAS >")
-    and draw_contains("AINDA SEM CONQUISTAS"),
+    and draw_contains("AINDA SEM CONQUISTAS")
+    and draw_contains("ESQ/DIR: FILTRO"),
     "Unlocked filter did not show its empty state for a fresh profile")
 
 ui_env:press("right")
@@ -623,7 +630,8 @@ check(draw_contains("BLOQUEADA") and draw_contains("B: VOLTAR"),
     "A did not open the selected achievement details")
 ui_env:press("b")
 screen:update(0)
-check(draw_contains("< TODAS >") and draw_contains("A: DETALHES"),
+check(draw_contains("< TODAS >") and draw_contains("A: DETALHES")
+    and draw_contains("ESQ/DIR: FILTRO"),
     "B did not return from details to the achievement list")
 ui_env:press("start")
 screen:update(0)
@@ -636,4 +644,123 @@ second_screen:update(0)
 check(ui_env:pop_count() == 2,
     "B did not close the achievement screen from its main list")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; session, persistence, profile integrity, START menu registration, filter navigation, list scrolling, details and screen exit verified."):format(#rows))
+-- Render the screen for every supported title and locale. The displayed
+-- title, total count and menu strings must follow the active game/language.
+local game_titles = {
+    red = "POKEMON RED",
+    blue = "POKEMON BLUE",
+    yellow = "POKEMON YELLOW",
+    gold = "POKEMON GOLD",
+    silver = "POKEMON SILVER",
+    crystal = "POKEMON CRYSTAL",
+    firered = "POKEMON FIRERED",
+    leafgreen = "POKEMON LEAFGREEN",
+    ruby = "POKEMON RUBY",
+    sapphire = "POKEMON SAPPHIRE",
+    emerald = "POKEMON EMERALD",
+}
+local locale_expectations = {
+    en = {
+        menu = "ACHIEVEMENTS",
+        title = "ACHIEVEMENTS",
+        progress = "PROGRESS",
+        filter = "< ALL >",
+        help = "LEFT/RIGHT: FILTER",
+    },
+    ["pt-BR"] = {
+        menu = "CONQUISTAS",
+        title = "CONQUISTAS",
+        progress = "PROGRESSO",
+        filter = "< TODAS >",
+        help = "ESQ/DIR: FILTRO",
+    },
+    es = {
+        menu = "LOGROS",
+        title = "LOGROS",
+        progress = "PROGRESO",
+        filter = "< TODOS >",
+        help = "IZQ/DER: FILTRO",
+    },
+}
+local catalog_counts = {}
+for _, row in ipairs(rows) do
+    catalog_counts[row[1]] = (catalog_counts[row[1]] or 0) + 1
+end
+
+local function rendered_text(env, screen)
+    env:clear_drawn()
+    env:draw_screen(screen)
+    local pieces = {}
+    for _, item in ipairs(env.drawn) do
+        pieces[#pieces + 1] = item.text
+    end
+    return table.concat(pieces, "\n")
+end
+
+for game_id, game_title in pairs(game_titles) do
+    for language, expected in pairs(locale_expectations) do
+        local env = make_environment(game_id, nil, language)
+        local screen = env.screens[screen_id].new(env.game)
+        local rendered = rendered_text(env, screen)
+        check(rendered:find(game_title, 1, true) ~= nil,
+            game_id .. "/" .. language .. ": wrong game title on achievements screen")
+        check(rendered:find(expected.title, 1, true) ~= nil,
+            game_id .. "/" .. language .. ": wrong localized screen title")
+        check(rendered:find(expected.progress .. " 0/" .. catalog_counts[game_id], 1, true) ~= nil,
+            game_id .. "/" .. language .. ": incorrect localized progress summary")
+        check(rendered:find(expected.filter, 1, true) ~= nil,
+            game_id .. "/" .. language .. ": default filter was not localized")
+        check(rendered:find(expected.help, 1, true) ~= nil,
+            game_id .. "/" .. language .. ": filter control hint was not localized")
+
+        local items = {
+            { label = "SAVE" },
+            { label = "OPTION" },
+        }
+        local menu_result = env:run_hook(
+            "ui.start_menu.items", items, env.game, items
+        )
+        check(menu_result[2].label == expected.menu,
+            game_id .. "/" .. language .. ": START menu label was not localized")
+    end
+end
+
+-- Secret achievements remain hidden in the detail screen until their live
+-- event is received. Opening or browsing the list must not grant them.
+local secret_row
+local secret_index = 0
+for _, row in ipairs(rows) do
+    if row[1] == "red" then
+        secret_index = secret_index + 1
+        if row[9] == "true" then
+            secret_row = row
+            break
+        end
+    end
+end
+check(secret_row ~= nil, "Red catalog must contain a secret achievement")
+
+local secret_env = make_environment("red")
+secret_env:dispatch("game.ready", { game = secret_env.game })
+local secret_screen = secret_env.screens[screen_id].new(secret_env.game)
+for _ = 2, secret_index do
+    secret_env:press("down")
+    secret_screen:update(0)
+end
+secret_env:press("a")
+secret_screen:update(0)
+local hidden_detail = rendered_text(secret_env, secret_screen)
+check(hidden_detail:find("???", 1, true) ~= nil
+    and hidden_detail:find("Desbloqueie", 1, true) ~= nil,
+    "locked secret achievement revealed its title or description")
+check(secret_env:write_count() == 0,
+    "opening a secret achievement modified the profile")
+secret_env:dispatch("save.loaded", {})
+secret_env:dispatch(secret_row[3], make_event(secret_row, secret_env, 1, true))
+local revealed_detail = rendered_text(secret_env, secret_screen)
+check(revealed_detail:find("O Guardião", 1, true) ~= nil,
+    "the live unlock did not reveal the secret achievement title")
+check(revealed_detail:find("Capture Articuno", 1, true) ~= nil,
+    "the live unlock did not reveal the localized secret description")
+
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, UI navigation, all 11 games, 3 locales, filter help and secret achievement visibility verified."):format(#rows))
