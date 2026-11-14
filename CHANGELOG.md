@@ -1,3 +1,10 @@
+## 0.5.10 — Feedback de alvos rejeitados
+
+- Exibido no painel o motivo localizado quando a API nativa rejeita a seleção do próprio Pokémon como alvo.
+- Adicionado aviso genérico localizado para outras rejeições da API, com expiração por atualização do jogo e descarte quando prompt/revisão mudam.
+- Mantida a autoridade do motor sobre os alvos permitidos; o mod não cria regras ou listas próprias por golpe.
+- Ampliado o runtime harness para testar os avisos em inglês, português brasileiro e espanhol, a expiração, a rejeição genérica e a recuperação da navegação após uma escolha recusada.
+
 ## 0.5.9 — Toque sincronizado com o estado da batalha
 
 - Vinculado cada layout de toque ao prompt e à revisão exatos do snapshot usados para desenhá-lo.
