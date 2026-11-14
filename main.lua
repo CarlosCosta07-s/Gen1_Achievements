@@ -1107,15 +1107,7 @@ return function(mod)
         elseif action == "left" or action == "right"
             or action == "up" or action == "down" then
             if count <= 0 then return true end
-            if snapshot.prompt == "target" then
-                if action == "up" then
-                    battle_ui.cursor = ((battle_ui.cursor - 2 + count) % count) + 1
-                elseif action == "down" then
-                    battle_ui.cursor = (battle_ui.cursor % count) + 1
-                end
-            else
-                battle_ui.cursor = battle_grid_cursor(battle_ui.cursor, count, action)
-            end
+            battle_ui.cursor = battle_grid_cursor(battle_ui.cursor, count, action)
             return true
         end
         -- A mapped action belongs to the replacement menu even when it has
@@ -1133,8 +1125,8 @@ return function(mod)
         if scale <= 0 then scale = 1 end
         local width = (tonumber(viewport.gameWidth) or 160 * scale) / scale
         local height = (tonumber(viewport.gameHeight) or 144 * scale) / scale
-        local panel_height = snapshot.prompt == "moves" and 62
-            or snapshot.prompt == "target" and 54 or 52
+        local panel_height = (snapshot.prompt == "moves" or snapshot.prompt == "target")
+            and 62 or 52
         panel_height = math.min(panel_height, height - 18)
         local panel = {
             x = 5, y = height - panel_height - 4,
@@ -1164,13 +1156,16 @@ return function(mod)
             end
         elseif snapshot.prompt == "target" then
             local targets = snapshot.targets or {}
-            local row_h = math.min(16, content_h / math.max(1, #targets))
-            for index = 1, #targets do
+            local cell_w = (panel.w - 10 - gap) / 2
+            local cell_h = (content_h - gap) / 2
+            for index = 1, math.min(4, #targets) do
+                local row = math.floor((index - 1) / 2)
+                local column = (index - 1) % 2
                 buttons[index] = {
-                    x = panel.x + 5,
-                    y = content_y + (index - 1) * row_h,
-                    w = panel.w - 10,
-                    h = row_h,
+                    x = panel.x + 5 + column * (cell_w + gap),
+                    y = content_y + row * (cell_h + gap),
+                    w = cell_w,
+                    h = cell_h,
                     index = index,
                 }
             end
@@ -1254,7 +1249,7 @@ return function(mod)
             graphics.scale(layout.scale, layout.scale)
 
             local panel = layout.panel
-            graphics.setColor(0.055, 0.065, 0.085, 0.97)
+            graphics.setColor(0.055, 0.065, 0.085, 1)
             graphics.rectangle("fill", panel.x, panel.y, panel.w, panel.h,
                 theme.radius + 2, theme.radius + 2)
             graphics.setColor(theme.accent[1], theme.accent[2], theme.accent[3], 1)
@@ -1266,7 +1261,13 @@ return function(mod)
                 or snapshot.prompt == "moves" and dictionary.battle_moves
                 or dictionary.battle_target
             draw_battle_text(graphics, title or "ACTION", panel.x + 7,
-                panel.y + 2, panel.w - 14, "left", { 1, 1, 1, 1 }, 16)
+                panel.y + 2, panel.w * 0.48, "left", { 1, 1, 1, 1 }, 12)
+            local help = snapshot.prompt == "menu"
+                and (dictionary.battle_select or "A: SELECT")
+                or (dictionary.battle_back or "B: BACK")
+            draw_battle_text(graphics, help, panel.x + panel.w * 0.52,
+                panel.y + 2, panel.w * 0.44, "right",
+                { 0.82, 0.85, 0.90, 1 }, 12)
 
             for index, rect in ipairs(layout.buttons) do
                 local selected = index == battle_ui.cursor
@@ -1304,11 +1305,6 @@ return function(mod)
                     "left", { 1, 1, 1, 1 }, 22)
             end
 
-            local help = snapshot.prompt == "menu"
-                and (dictionary.battle_select or "A: SELECT")
-                or (dictionary.battle_back or "B: BACK")
-            draw_battle_text(graphics, help, panel.x + 7, panel.y + panel.h - 9,
-                panel.w - 14, "right", { 0.82, 0.85, 0.90, 1 }, 16)
             graphics.pop()
         end)
         if not ok then
