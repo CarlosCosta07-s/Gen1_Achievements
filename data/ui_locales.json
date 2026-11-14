@@ -16,7 +16,19 @@
     "details": "A: DETAILS",
     "back": "B: BACK",
     "filter": "LEFT/RIGHT: FILTER",
-    "notification": "ACHIEVEMENT UNLOCKED"
+    "notification": "ACHIEVEMENT UNLOCKED",
+    "battle_action": "ACTION",
+    "battle_fight": "FIGHT",
+    "battle_bag": "BAG",
+    "battle_pokemon": "POKEMON",
+    "battle_run": "RUN",
+    "battle_moves": "MOVES",
+    "battle_target": "TARGET",
+    "battle_choose": "CHOOSE",
+    "battle_select": "A: SELECT",
+    "battle_back": "B: BACK",
+    "battle_no_moves": "NO USABLE MOVES",
+    "battle_pp": "PP"
   },
   "pt-BR": {
     "menu": "CONQUISTAS",
@@ -35,7 +47,19 @@
     "details": "A: DETALHES",
     "back": "B: VOLTAR",
     "filter": "ESQ/DIR: FILTRO",
-    "notification": "CONQUISTA DESBLOQUEADA"
+    "notification": "CONQUISTA DESBLOQUEADA",
+    "battle_action": "AÇÃO",
+    "battle_fight": "LUTAR",
+    "battle_bag": "BOLSA",
+    "battle_pokemon": "POKEMON",
+    "battle_run": "FUGIR",
+    "battle_moves": "GOLPES",
+    "battle_target": "ALVO",
+    "battle_choose": "ESCOLHER",
+    "battle_select": "A: SELECIONAR",
+    "battle_back": "B: VOLTAR",
+    "battle_no_moves": "SEM GOLPES USÁVEIS",
+    "battle_pp": "PP"
   },
   "es": {
     "menu": "LOGROS",
@@ -54,6 +78,18 @@
     "details": "A: DETALLES",
     "back": "B: VOLVER",
     "filter": "IZQ/DER: FILTRO",
-    "notification": "LOGRO DESBLOQUEADO"
+    "notification": "LOGRO DESBLOQUEADO",
+    "battle_action": "ACCIÓN",
+    "battle_fight": "LUCHAR",
+    "battle_bag": "BOLSA",
+    "battle_pokemon": "POKEMON",
+    "battle_run": "HUIR",
+    "battle_moves": "MOVIMIENTOS",
+    "battle_target": "OBJETIVO",
+    "battle_choose": "ELEGIR",
+    "battle_select": "A: ELEGIR",
+    "battle_back": "B: VOLVER",
+    "battle_no_moves": "SIN MOVIMIENTOS",
+    "battle_pp": "PP"
   }
 }
