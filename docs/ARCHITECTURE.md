@@ -28,10 +28,12 @@ O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o e
 O menu de batalha é a única interface refeita integralmente pelo mod. O desenho original usa uma bandeja escura, cartões claros, destaque cromático por título e cartões de golpe com nome, tipo e PP. A estrutura de composição toma Pokémon Black/White como referência, sem reutilizar seus assets.
 
 O snapshot é lido por `mod.battle:snapshot()`. As escolhas são enviadas por `mod.battle:submit()` com `revision` e ID crescente de intenção:
-- `menu` para Fight, Bag, Pokémon e Run;
-- `move` para selecionar um dos quatro espaços de golpe;
-- `target` para selecionar um battler quando a terceira geração expõe alvos;
+- `menu` para Fight, Item/Pack/Bag, Pokémon e Run;
+- `move` para selecionar o slot nativo do golpe. Gen 1 expõe `curMoves`, Gen 2 expõe `moves`, e Gen 3 compacta a lista visível mas preserva o número real em `slot`;
+- `target` apenas na API da terceira geração, que expõe IDs de battler de 0 a 3. Esses IDs podem ser esparsos; a seleção usa o ID nativo, não o índice da grade;
 - `back` para retornar da seleção de golpe/alvo.
+
+A PP é tratada de acordo com o contrato do adaptador: valor numérico zero desabilita o golpe; ausência de PP representa dado desconhecido e aparece como `--/--`, sem bloquear uma escolha que o próprio adaptador permite. O campo `disabled` continua sendo respeitado quando fornecido.
 
 Os hooks `input.key`, `input.gamepad` e `input.pointer` capturam teclado, controle físico e toque direto somente quando uma fase substituível está ativa. `input.step` encaminha as entradas do overlay virtual Android/iOS antes do processamento nativo. `overlayPressed` registra também os toques curtos entre passos; A/B/D-pad são mascarados apenas quando pertencem ao overlay e apenas no passo que consome a borda, preservando teclado, gamepad e outras fontes. O ponteiro é convertido de coordenadas da janela para o espaço lógico do painel, considerando origem e escala do viewport. O hook `render.hud` desenha o painel sobre a parte inferior do frame. `battle.bottom_ui_visible` esconde a camada nativa nas versões em que a superfície está disponível; se não estiver, o painel vetorial cobre a região inferior. A HUD superior continua nativa.
 
