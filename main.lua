@@ -1472,20 +1472,40 @@ return function(mod)
         local width = (tonumber(viewport.gameWidth) or 160 * scale) / scale
         local height = (tonumber(viewport.gameHeight) or 144 * scale) / scale
         local actorName
+        local actorHp, actorMaxHp
         if snapshot.double == true and type(snapshot.player) == "table" then
             actorName = snapshot.player.name or snapshot.player.species
+            local currentHp = tonumber(snapshot.player.hp)
+            local maximumHp = tonumber(snapshot.player.maxHp)
+            if currentHp ~= nil and maximumHp ~= nil
+                and currentHp == currentHp and maximumHp == maximumHp
+                and currentHp ~= math.huge and currentHp ~= -math.huge
+                and maximumHp ~= math.huge and maximumHp ~= -math.huge
+                and maximumHp >= 1 then
+                actorMaxHp = math.floor(maximumHp)
+                if actorMaxHp > 0 then
+                    actorHp = math.max(0, math.min(actorMaxHp, math.floor(currentHp)))
+                else
+                    actorMaxHp = nil
+                end
+            end
         end
         local showDoubleActor = type(actorName) == "string" and actorName ~= ""
+        local showActorHp = showDoubleActor and actorHp ~= nil and actorMaxHp ~= nil
         local panel_height = (snapshot.prompt == "moves" or snapshot.prompt == "target"
             or snapshot.prompt == "mimic") and 62 or 52
-        if showDoubleActor then panel_height = panel_height + 3 end
+        if showDoubleActor then
+            -- The second actor row is reserved only when public HP values exist.
+            -- A missing/invalid HP field leaves the previous compact header intact.
+            panel_height = panel_height + (showActorHp and 12 or 3)
+        end
         panel_height = math.min(panel_height, height - 18)
         local panel = {
             x = 5, y = height - panel_height - 4,
             w = width - 10, h = panel_height,
         }
         local gap = width >= 200 and 5 or 3
-        local header = showDoubleActor and 13 or 10
+        local header = showActorHp and 19 or showDoubleActor and 13 or 10
         local content_y = panel.y + header + 3
         local content_h = panel.h - header - 7
         local buttons = {}
@@ -1546,6 +1566,9 @@ return function(mod)
             revision = snapshot.revision,
             showDoubleActor = showDoubleActor,
             actorName = actorName,
+            showActorHp = showActorHp,
+            actorHp = actorHp,
+            actorMaxHp = actorMaxHp,
         }
     end
 
@@ -1688,9 +1711,54 @@ return function(mod)
             if layout.showDoubleActor then
                 local actorLabel = (dictionary.battle_active or "ACTIVE")
                     .. ": " .. tostring(layout.actorName)
-                draw_battle_text(graphics, actorLabel, panel.x + 7,
-                    panel.y + 10, panel.w - 14, "left",
-                    { 0.72, 0.77, 0.84, 1 }, 25)
+                if layout.showActorHp then
+                    local actorWidth = panel.w * 0.60
+                    local actorScale = math.min(1, actorWidth / math.max(1,
+                        glyph_count(actorLabel, mod.ui.Font) * 6))
+                    draw_battle_text(graphics, actorLabel, panel.x + 7,
+                        panel.y + 10, actorWidth, "left",
+                        { 0.72, 0.77, 0.84, 1 }, 25, actorScale)
+
+                    local hpText = ("HP %d/%d"):format(
+                        layout.actorHp, layout.actorMaxHp
+                    )
+                    local hpWidth = panel.w * 0.28
+                    local hpScale = math.min(1, hpWidth / math.max(1,
+                        glyph_count(hpText, mod.ui.Font) * 6))
+                    draw_battle_text(graphics, hpText,
+                        panel.x + panel.w * 0.66, panel.y + 10,
+                        hpWidth, "right", { 0.92, 0.94, 0.97, 1 },
+                        9, hpScale)
+
+                    -- HP remains an observation from the public snapshot. It is
+                    -- never written back or used to influence battle decisions.
+                    local meterX, meterY = panel.x + 7, panel.y + 18
+                    local meterW, meterH = panel.w - 14, 3
+                    local ratio = layout.actorHp / layout.actorMaxHp
+                    local meterColor = ratio >= 0.5
+                        and { 0.24, 0.72, 0.38, 1 }
+                        or ratio >= 0.2
+                            and { 0.90, 0.70, 0.24, 1 }
+                            or { 0.84, 0.27, 0.25, 1 }
+                    graphics.setColor(0.16, 0.18, 0.22, 1)
+                    graphics.rectangle("fill", meterX, meterY, meterW, meterH,
+                        theme.radius, theme.radius)
+                    local fillW = (meterW - 2) * ratio
+                    if fillW > 0 then
+                        graphics.setColor(meterColor[1], meterColor[2],
+                            meterColor[3], meterColor[4])
+                        graphics.rectangle("fill", meterX + 1, meterY + 1,
+                            fillW, 1, theme.radius, theme.radius)
+                    end
+                    graphics.setColor(theme.shade[1], theme.shade[2],
+                        theme.shade[3], 1)
+                    graphics.rectangle("line", meterX, meterY, meterW, meterH,
+                        theme.radius, theme.radius)
+                else
+                    draw_battle_text(graphics, actorLabel, panel.x + 7,
+                        panel.y + 10, panel.w - 14, "left",
+                        { 0.72, 0.77, 0.84, 1 }, 25)
+                end
             end
 
             for index, rect in ipairs(layout.buttons) do

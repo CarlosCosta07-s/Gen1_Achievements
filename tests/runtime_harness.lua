@@ -1221,7 +1221,7 @@ local double_target_env = make_environment("emerald")
 double_target_env:set_battle_snapshot({
     prompt = "target", kind = "trainer", revision = 31, double = true,
     active = 2, target = 0, targets = { 0, 1, 2, 3 },
-    player = { name = "RAICHU" },
+    player = { name = "RAICHU", hp = 45, maxHp = 60 },
     battlers = {
         { id = 0, side = "player", name = "PIKACHU", hp = 40, maxHp = 40, active = true },
         { id = 1, side = "enemy", name = "GASTLY", hp = 25, maxHp = 25, active = true },
@@ -1238,10 +1238,37 @@ for _, call in ipairs(battle_draw_calls) do
 end
 local double_target_rendered = table.concat(double_target_text, "\n")
 check(double_target_rendered:find("ATIVO: RAICHU", 1, true) ~= nil
+    and double_target_rendered:find("HP 45/60", 1, true) ~= nil
     and double_target_rendered:find("ATIVO", 1, true) ~= nil
     and double_target_rendered:find("ALIADO", 1, true) ~= nil
     and double_target_rendered:find("INIMIGO", 1, true) ~= nil,
-    "double-battle UI did not identify the active Pokémon, partner and opponents")
+    "double-battle UI did not identify the active Pokémon, its HP, partner and opponents")
+local double_health_fill = false
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "rectangle" and call.mode == "fill"
+        and call.h == 1 and call.w > 100 and call.w < 110 then
+        double_health_fill = true
+        break
+    end
+end
+check(double_health_fill,
+    "double-battle actor HP meter did not render the snapshot health ratio")
+
+local no_actor_hp_env = make_environment("emerald")
+no_actor_hp_env:set_battle_snapshot({
+    prompt = "moves", kind = "trainer", revision = 32, double = true,
+    active = 0, player = { name = "PIKACHU", hp = 0, maxHp = 0 },
+    enemy = {}, party = {}, moves = {}, items = {},
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+no_actor_hp_env:run_hook("render.hud", nil, no_actor_hp_env.game, base_viewport)
+local no_actor_hp_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then no_actor_hp_text[#no_actor_hp_text + 1] = call.value end
+end
+check(table.concat(no_actor_hp_text, "\n"):find("HP ", 1, true) == nil
+    and table.concat(no_actor_hp_text, "\n"):find("ATIVO: PIKACHU", 1, true) ~= nil,
+    "invalid active-actor HP data changed or hid the normal double-battle header")
 double_target_env:run_hook(
     "input.key", nil, double_target_env.game, { phase = "pressed", key = "down" }
 )

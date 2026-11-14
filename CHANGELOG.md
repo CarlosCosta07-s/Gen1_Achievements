@@ -1,3 +1,9 @@
+## 0.5.11 — Indicador de HP do combatente ativo
+
+- Exibidos HP atual, HP máximo e uma barra compacta para o Pokémon que está comandando em batalhas duplas, usando somente os dados da API pública.
+- Mantido o cabeçalho anterior quando os campos de HP estão ausentes ou inválidos; valores são limitados ao intervalo válido e nunca alteram o estado da batalha.
+- Adicionados testes de renderização para os valores do HP, proporção da barra e fallback de dados inválidos.
+
 ## 0.5.10 — Feedback de alvos rejeitados
 
 - Exibido no painel o motivo localizado quando a API nativa rejeita a seleção do próprio Pokémon como alvo.
