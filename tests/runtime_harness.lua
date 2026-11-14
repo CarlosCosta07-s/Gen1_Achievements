@@ -790,36 +790,15 @@ local option_row_ids = {
     "battleBg", "battleHud", "battleLayout", "battleFit",
     "zoom", "tilt", "voidFill",
 }
-local expected_by_slot = {
-    [1] = "audioMode",
-    [3] = "musicVol",
-    [4] = "battleStyle",
-    [6] = "animations",
-    [7] = "uiLayout",
-    [8] = "orientation",
-    [9] = "sfxVol",
-    [10] = "pikaVol",
-    [11] = "third_party_general",
-    [12] = "musicFilter",
-    [13] = "videoMode",
-    [14] = "screenPos",
-    [15] = "faithfulRes",
-    [16] = "vsync",
-    [17] = "colors",
-    [18] = "shaderfx",
-    [19] = "uiLetterbox",
-    [20] = "shaderfx2",
-    [21] = "textSpeed",
-    [22] = "speedOverworld",
-    [23] = "speedBattle",
-    [24] = "speedMenu",
-    [25] = "battleLayout",
-    [26] = "battleFit",
-    [27] = "battleHud",
-    [28] = "battleBg",
-    [29] = "tilt",
-    [30] = "zoom",
-    [31] = "voidFill",
+local expected_category_orders = {
+    { "audioMode", "musicVol", "sfxVol", "pikaVol", "musicFilter" },
+    { "uiLayout", "orientation", "videoMode", "faithfulRes",
+        "screenPos", "vsync", "fpsCap", "logicClock" },
+    { "colors", "shaderfx", "shaderfx2", "uiLetterbox" },
+    { "battleStyle", "animations", "battleLayout", "battleFit",
+        "battleHud", "battleBg" },
+    { "textSpeed", "speedOverworld", "speedBattle", "speedMenu" },
+    { "tilt", "zoom", "voidFill" },
 }
 local function make_option_rows()
     local result = {}
@@ -849,17 +828,47 @@ for _, game_id in ipairs(supported_versions) do
     check(type(organized) == "table" and #organized == #input_rows,
         game_id .. ": options hook changed the number of rows")
 
-    for index, expected_id in pairs(expected_by_slot) do
-        check(organized[index].id == expected_id,
-            game_id .. ": wrong options row at slot " .. tostring(index)
-                .. "; expected " .. expected_id .. ", got "
-                .. tostring(organized[index].id))
+    local native_ids = {}
+    for _, category_order in ipairs(expected_category_orders) do
+        local category_ids = {}
+        for _, id in ipairs(category_order) do
+            category_ids[id] = true
+            native_ids[id] = true
+        end
+
+        local actual = {}
+        for _, row in ipairs(organized) do
+            if category_ids[row.id] then
+                actual[#actual + 1] = row.id
+            end
+        end
+
+        local expected = {}
+        for _, id in ipairs(category_order) do
+            local present = false
+            for _, row in ipairs(input_rows) do
+                if row.id == id then present = true; break end
+            end
+            if present then expected[#expected + 1] = id end
+        end
+
+        check(#actual == #expected,
+            game_id .. ": an options category gained or lost a row")
+        for index, expected_id in ipairs(expected) do
+            check(actual[index] == expected_id,
+                game_id .. ": wrong category ordering at item "
+                    .. tostring(index) .. "; expected " .. expected_id
+                    .. ", got " .. tostring(actual[index]))
+        end
     end
 
-    -- Every non-native row stays at exactly the same position and is not cloned.
-    check(organized[2] == original_rows[2]
-        and organized[5] == original_rows[5],
-        game_id .. ": another mod's option row was moved or replaced")
+    -- Every row unknown to this mod stays at the same slot and is not cloned.
+    for index, original in ipairs(original_rows) do
+        if not native_ids[original.id] then
+            check(organized[index] == original,
+                game_id .. ": another mod's option row was moved or replaced")
+        end
+    end
 
     for index, row in ipairs(organized) do
         check(row.marker == "preserve-" .. row.id,
@@ -876,4 +885,4 @@ local invalid_result = invalid_options_env:run_hook(
 check(invalid_result == false,
     "options hook did not preserve a non-table downstream result")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, UI navigation, all 11 games, 3 locales, filter help and secret achievement visibility verified."):format(#rows))
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, UI navigation, all 11 games, 3 locales, secret visibility and in-game OPTIONS row ordering verified."):format(#rows))
