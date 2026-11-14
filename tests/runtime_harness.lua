@@ -126,6 +126,7 @@ local function make_environment(game_id, initial_cache, language)
                     y = y,
                 }
             end,
+            drawBox = function() end,
         },
         insertAfter = function(items, anchor, new_item)
             local output = {}
