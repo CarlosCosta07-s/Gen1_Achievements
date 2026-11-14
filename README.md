@@ -49,14 +49,21 @@ Cada jogo contém entre 17 e 20 conquistas de Pokédex, evolução, batalhas, in
 - `data/ui_locales.json` — espelho legível das mesmas traduções para ferramentas e futuras integrações.
 - `docs/` — arquitetura, armazenamento e integração.
 - `tests/validate_catalog.py` — validação automatizada do catálogo.
+- `tests/runtime_harness.lua` — execução controlada do `main.lua` com uma API de teste.
 
-## Validação
+## Validação e testes
+
+Execute localmente a validação estática, a verificação de sintaxe LuaJIT e o harness de runtime:
 
 ```bash
 python3 tests/validate_catalog.py
+luajit -b main.lua /tmp/gen1-achievements.luac
+luajit tests/runtime_harness.lua
 ```
 
-A validação verifica eventos disponíveis por geração, condições, traduções e um limite equilibrado de 17–20 conquistas por jogo. O GitHub Actions também compila a sintaxe do LuaJIT.
+O validador verifica eventos disponíveis por geração, condições, traduções e o limite equilibrado de 17–20 conquistas por jogo. O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita todas as 205 linhas do catálogo, além dos bloqueios de sessão, isolamento entre jogos, migração do perfil legado e falhas de gravação. O GitHub Actions executa as três verificações em cada atualização de `main`.
+
+O harness simula payloads de eventos: ele testa a lógica do mod, mas não substitui testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 
 ## Referências técnicas
 
