@@ -7,6 +7,7 @@ Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRe
 ## Experiência dentro do jogo
 
 - Nova opção no menu START, posicionada antes de OPTIONS.
+- Menu de batalha redesenhado pelo mod com referência estrutural em Pokémon Black/White e variação visual por título.
 - Tela de conquistas controlada pelo D-pad e pelos botões A/B/START.
 - Filtros All / Unlocked / Locked, com instrução de navegação no rodapé.
 - Detalhes e descrições das conquistas.
@@ -20,7 +21,13 @@ As opções do Gen1 Achievements ficam no **gerenciador de MODS dentro do jogo**
 
 ## Configurações dos jogos
 
-O mod reorganiza a ordem das opções nativas dentro das categorias existentes de áudio, vídeo, gráficos, batalha, velocidade e extras. As categorias e o visual continuam pertencendo a cada jogo: não são substituídos fontes, cores, molduras, ícones, animações ou controles. Linhas de outros mods permanecem no lugar. As opções do próprio Gen1 Achievements continuam somente no gerenciador MODS dentro do jogo.
+O mod reorganiza as opções nativas e as ações comuns dos submenus da equipe, sem redesenhar esses menus. Fontes, cores, molduras, ícones, animações e controles nativos permanecem intactos; movimentos de campo e entradas de outros mods mantêm suas posições. A única interface refeita integralmente é o menu de batalha, que tem uma composição própria e onze variações de tema.
+
+## Menu de batalha
+
+A nova interface usa uma bandeja escura e cartões claros, com hierarquia inspirada em Pokémon Black/White. Cada jogo usa um acento cromático e acabamento próprios: Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire e Emerald. A seleção mostra nome, tipo e PP dos golpes e oferece alvos nas batalhas duplas quando a API fornece esses dados.
+
+O mod não inclui sprites, fontes ou recursos extraídos de Black/White. Ele envia escolhas semânticas para o motor por meio da API pública de batalha. A mochila, a equipe, a execução dos golpes e as regras do combate continuam nativas. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md).
 
 ## Jogos e perfis
 
@@ -48,12 +55,12 @@ Cada jogo contém entre 17 e 20 conquistas de Pokédex, evolução, batalhas, in
 ## Arquivos principais
 
 - `manifest.json` — Portable Mod API 3 e os onze jogos.
-- `main.lua` — menu START, organização das opções nativas, tela, persistência, eventos e notificações.
+- `main.lua` — menu START, organização de submenus, menu de batalha, tela, persistência, eventos e notificações.
 - `data/achievements.tsv` — catálogo localizado.
 - `data/games.json` — títulos e ordem dos jogos.
 - `data/ui_locales.tsv` — textos de interface carregados pelo mod.
 - `data/ui_locales.json` — espelho legível das traduções para ferramentas de validação.
-- `docs/` — arquitetura, armazenamento, integridade e contrato dos eventos.
+- `docs/` — arquitetura, armazenamento, integridade, contrato dos eventos e especificação do menu de batalha.
 - `tests/validate_catalog.py` — validação estrutural e de traduções.
 - `tests/validate_engine_contract.py` — verificação de eventos, campos e tipos contra a revisão fixada do motor.
 - `tests/runtime_harness.lua` — execução controlada do `main.lua`, incluindo o menu START e a navegação da tela de conquistas, com uma API de teste.
@@ -71,7 +78,7 @@ luajit tests/runtime_harness.lua
 
 O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores e limites equilibrados de 17–20 conquistas por jogo. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
 
-O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 205 linhas do catálogo. Também executa os hooks do menu START e das opções do jogo, verifica a posição da entrada do mod, a ordenação interna das categorias de opções nos onze títulos, a preservação de linhas de outros mods e a permanência da configuração de idioma no gerenciador MODS. A camada visual percorre filtros, rolagem, detalhes, saída da tela, os onze títulos e os três idiomas; também verifica que conquistas secretas só revelem título e descrição após o evento legítimo de desbloqueio. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
+O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 205 linhas do catálogo. Também executa os hooks do menu START, das opções gerais e do submenu da equipe, verificando a ordenação de ações e a preservação de movimentos de campo e itens de outros mods. A camada visual percorre a tela de conquistas nos onze títulos e três idiomas. Para o menu de batalha, snapshots sintéticos verificam os quatro comandos, golpes com tipo e PP, alvos de duplas, retorno com B, toque, cores e variações por título. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
 
 Esses testes automatizados não substituem testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 
