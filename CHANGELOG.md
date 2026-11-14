@@ -1,3 +1,11 @@
+## 0.5.7 — Contexto de batalhas duplas
+
+- Identificado no painel o Pokémon ativo que está escolhendo o comando, acompanhando a troca de slot entre as ações da batalha dupla.
+- Diferenciados visualmente o combatente ativo, o parceiro e os adversários nos cartões de seleção de alvo.
+- Preservados os IDs nativos dos alvos, inclusive quando a lista é esparsa; a fase de equipe e a troca de Pokémon continuam sob controle do jogo.
+- Adicionadas traduções dos novos indicadores em inglês, português brasileiro e espanhol.
+- Ampliado o harness para verificar papéis dos battlers, mudança do slot ativo, envio do ID nativo do parceiro e passagem da fase `party` ao jogo.
+
 ## 0.5.6 — Menus especiais e transições nativas
 
 - Integrado o seletor Mimic de Gen 1 pela intenção pública `mimic`, preservando o índice da lista nativa de golpes copiáveis.
