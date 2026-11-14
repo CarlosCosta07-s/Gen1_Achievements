@@ -24,10 +24,10 @@ def read_rows() -> list[tuple[int, list[str]]]:
     rows: list[tuple[int, list[str]]] = []
     with CATALOG_PATH.open("r", encoding="utf-8") as handle:
         for line_number, raw in enumerate(handle, start=1):
-            line = raw.rstrip("\\r\\n")
+            line = raw.rstrip("\r\n")
             if not line or line.startswith("#"):
                 continue
-            fields = line.split("\\t")
+            fields = line.split("\t")
             if len(fields) != 15:
                 raise ValueError(
                     f"line {line_number}: expected 15 columns, found {len(fields)}"
