@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3 — Coordenadas de toque em viewport ampliado
+
+- Convertidas as coordenadas do ponteiro de janela para o espaço lógico do jogo antes de testar cartões e a área B: VOLTAR.
+- Adicionado teste de clique com viewport deslocado e renderização em escala 2×.
+
 ## 0.5.2 — Captura de toques curtos
 
 - Registradas as bordas do overlay virtual diretamente em Input.overlayPressed, incluindo toques liberados antes do próximo passo de lógica.
