@@ -1200,6 +1200,29 @@ overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
 check(overlay_env.game.input.wasPressed ~= nil,
     "native input methods were not restored after leaving the custom menu")
 
+-- Simultaneous d-pad and A touch must move the cursor before confirming.
+local combo_env = make_environment("red")
+combo_env:set_battle_snapshot(menu_snapshot)
+combo_env:set_touch_down("right", true)
+combo_env:set_touch_down("a", true)
+combo_env:press("right")
+combo_env:press("a")
+combo_env:run_hook("input.step", nil, combo_env.game, 1 / 60)
+check(#combo_env:submitted() == 1
+    and combo_env:submitted()[1].kind == "menu"
+    and combo_env:submitted()[1].choice == "party",
+    "simultaneous virtual d-pad + A did not confirm the newly selected action")
+
+-- Other input sources remain readable while the custom menu is active;
+-- only a GB button currently held by TouchControls is masked.
+local non_touch_env = make_environment("red")
+non_touch_env:set_battle_snapshot(menu_snapshot)
+non_touch_env:press("a")
+non_touch_env:run_hook("input.step", nil, non_touch_env.game, 1 / 60)
+check(non_touch_env.game.input:wasPressed("a") == true
+    and non_touch_env.game.input:isDown("a") == true,
+    "battle touch bridge masked a non-touch input source")
+
 -- The B: BACK header hint is an actual touch target, not decorative text.
 local back_env = make_environment("red")
 back_env:set_battle_snapshot(move_snapshot)
