@@ -1424,6 +1424,81 @@ local outside_consumed = pointer_env:run_hook(
 check(outside_consumed == false,
     "battle menu consumed a pointer press outside its own panel")
 
+-- A rendered target card belongs to the prompt/revision that produced it.
+-- If the battle advances before the next frame is drawn, the stale touch is
+-- consumed without being reinterpreted as a move or another target.
+local stale_pointer_env = make_environment("emerald")
+local stale_pointer_target = {
+    prompt = "target", kind = "wild", revision = 70,
+    targets = { 0, 3 }, target = 3,
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+}
+local fresh_pointer_moves = {
+    prompt = "moves", kind = "wild", revision = 71,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "THUNDERBOLT", name = "THUNDERBOLT", slot = 3,
+            type = "ELECTRIC", pp = 10, maxPp = 15 },
+    },
+}
+stale_pointer_env:set_battle_snapshot(stale_pointer_target)
+stale_pointer_env:run_hook("render.hud", nil, stale_pointer_env.game, base_viewport)
+stale_pointer_env:set_battle_snapshot(fresh_pointer_moves)
+local stale_phase_pointer = stale_pointer_env:run_hook(
+    "input.pointer", false, stale_pointer_env.game,
+    { phase = "pressed", source = "touch", id = 70, gameX = 20, gameY = 100 }
+)
+check(stale_phase_pointer == true and #stale_pointer_env:submitted() == 0,
+    "a stale target-card touch was reinterpreted after the battle changed to moves")
+stale_pointer_env:run_hook("render.hud", nil, stale_pointer_env.game, base_viewport)
+local fresh_phase_pointer = stale_pointer_env:run_hook(
+    "input.pointer", false, stale_pointer_env.game,
+    { phase = "pressed", source = "touch", id = 71, gameX = 20, gameY = 100 }
+)
+check(fresh_phase_pointer == true and #stale_pointer_env:submitted() == 1
+    and stale_pointer_env:submitted()[1].kind == "move"
+    and stale_pointer_env:submitted()[1].slot == 3
+    and stale_pointer_env:submitted()[1].revision == 71,
+    "the refreshed move layout did not accept a new pointer press")
+
+-- The same prompt can also have a new battle revision while a touch is in
+-- flight, for example after HP/absence or battler state changes.
+local stale_revision_pointer_env = make_environment("emerald")
+local pointer_target_old = {
+    prompt = "target", kind = "trainer", revision = 80,
+    targets = { 0, 3 }, target = 3,
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+}
+local pointer_target_new = {
+    prompt = "target", kind = "trainer", revision = 81,
+    targets = { 1, 3 }, target = 3,
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    battlers = {
+        { id = 1, side = "enemy", name = "GASTLY" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+}
+stale_revision_pointer_env:set_battle_snapshot(pointer_target_old)
+stale_revision_pointer_env:run_hook(
+    "render.hud", nil, stale_revision_pointer_env.game, base_viewport
+)
+stale_revision_pointer_env:set_battle_snapshot(pointer_target_new)
+local stale_revision_pointer = stale_revision_pointer_env:run_hook(
+    "input.pointer", false, stale_revision_pointer_env.game,
+    { phase = "pressed", source = "touch", id = 80, gameX = 20, gameY = 100 }
+)
+check(stale_revision_pointer == true
+    and #stale_revision_pointer_env:submitted() == 0,
+    "a pointer press used target geometry from an older revision of the same prompt")
+
 -- Pointer input is in window units; it must be transformed back to the
 -- logical game layout when the game viewport is enlarged and offset.
 local scaled_env = make_environment("red")
