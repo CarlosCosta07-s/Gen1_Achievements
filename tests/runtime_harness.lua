@@ -746,21 +746,21 @@ local game_titles = {
 }
 local locale_expectations = {
     en = {
-        menu = "ACHIEVEMENTS",
+        menu = "ACHV.",
         title = "ACHIEVEMENTS",
         progress = "PROGRESS",
         filter = "< ALL >",
         help = "LEFT/RIGHT: FILTER",
     },
     ["pt-BR"] = {
-        menu = "CONQUISTAS",
+        menu = "CONQ.",
         title = "CONQUISTAS",
         progress = "PROGRESSO",
         filter = "< TODAS >",
         help = "ESQ/DIR: FILTRO",
     },
     es = {
-        menu = "LOGROS",
+        menu = "LOGR.",
         title = "LOGROS",
         progress = "PROGRESO",
         filter = "< TODOS >",
