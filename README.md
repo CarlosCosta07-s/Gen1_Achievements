@@ -14,9 +14,9 @@ Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRe
 - Notificação na tela quando uma conquista é desbloqueada.
 - Conquistas secretas podem esconder título e descrição até o desbloqueio.
 
-A interface usa os widgets e hooks oficiais da Portable Mod API 3. O item do menu e a tela são registrados pelo próprio mod; não é necessário modificar o código-base do Gen1Recomp para adicionar a entrada ao menu START.
+A interface usa os hooks oficiais da Portable Mod API 3. O item de conquistas, a tela e a reorganização das opções são aplicados pelo próprio mod; não é necessário modificar o código-base do Gen1Recomp.
 
-A página global **Extras → Conquistas** do launcher ainda não está implementada. A API pública consultada documenta telas dentro do jogo e o hook `ui.start_menu.items`, mas não um registro de páginas para o painel Extras do launcher. O limite e o plano de integração estão registrados em [`docs/LAUNCHER_INTEGRATION.md`](docs/LAUNCHER_INTEGRATION.md); nenhuma alteração será feita no repositório do Gen1Recomp.
+As opções do Gen1 Achievements ficam no **gerenciador de MODS dentro do jogo**. No Gen 1, o gerenciador é aberto pelo atalho F10; no Gen 2 e Gen 3, pelo menu START → MODS. A configuração de idioma continua nessa área e não será duplicada nas opções gerais do jogo.
 
 ## Jogos e perfis
 
@@ -30,7 +30,7 @@ O progresso é armazenado por título, compartilhado entre os saves daquele jogo
 
 ## Idiomas
 
-O idioma escolhido no gerenciador de mods do launcher controla os textos da tela, nomes e descrições:
+O idioma escolhido no gerenciador de MODS dentro do jogo controla os textos da tela, nomes e descrições:
 - `en` — English
 - `pt-BR` — Português (Brasil), padrão
 - `es` — Español
