@@ -1010,6 +1010,7 @@ return function(mod)
         prompt = nil,
         cursor = 1,
         snapshot = nil,
+        target_ids = nil,
         layout = nil,
         pointer_captures = {},
         axis_action = nil,
@@ -1043,11 +1044,31 @@ return function(mod)
         return snapshot
     end
 
+    local function target_index(targets, wanted)
+        if wanted == nil then return nil end
+        for index, target in ipairs(targets or {}) do
+            if target == wanted then return index end
+        end
+        return nil
+    end
+
+    local function same_target_ids(left, right)
+        if type(left) ~= "table" or type(right) ~= "table" then
+            return false
+        end
+        if #left ~= #right then return false end
+        for index, target in ipairs(left) do
+            if target ~= right[index] then return false end
+        end
+        return true
+    end
+
     local function sync_battle_ui(game, snapshot)
         if battle_ui.game ~= game then
             battle_ui.game = game
             battle_ui.prompt = nil
             battle_ui.cursor = 1
+            battle_ui.target_ids = nil
             battle_ui.layout = nil
             battle_ui.pointer_captures = {}
             battle_ui.axis_action = nil
@@ -1055,16 +1076,14 @@ return function(mod)
             battle_ui.touch_pending = {}
             battle_ui.touch_mask_pending = {}
         end
-        if battle_ui.prompt ~= snapshot.prompt then
+
+        local promptChanged = battle_ui.prompt ~= snapshot.prompt
+        if promptChanged then
             battle_ui.prompt = snapshot.prompt
             battle_ui.cursor = 1
+            battle_ui.target_ids = nil
             if snapshot.prompt == "target" and type(snapshot.targets) == "table" then
-                for index, target in ipairs(snapshot.targets) do
-                    if target == snapshot.target then
-                        battle_ui.cursor = index
-                        break
-                    end
-                end
+                battle_ui.cursor = target_index(snapshot.targets, snapshot.target) or 1
             elseif snapshot.prompt == "mimic" then
                 local index = tonumber(snapshot.mimicIndex)
                 local count = #(snapshot.mimicMoves or {})
@@ -1073,6 +1092,39 @@ return function(mod)
                 end
             end
         end
+
+        if snapshot.prompt == "target" and type(snapshot.targets) == "table" then
+            local nextTargets = {}
+            for index, target in ipairs(snapshot.targets) do
+                nextTargets[index] = target
+            end
+            if not promptChanged and not same_target_ids(battle_ui.target_ids, nextTargets) then
+                -- Keep the same native battler selected when the engine's
+                -- available-target list changes. If that battler disappeared,
+                -- prefer the engine cursor before falling back to a safe index.
+                local previousTarget = battle_ui.target_ids
+                    and battle_ui.target_ids[battle_ui.cursor]
+                local nextCursor = target_index(nextTargets, previousTarget)
+                    or target_index(nextTargets, snapshot.target)
+                if nextCursor then
+                    battle_ui.cursor = nextCursor
+                elseif #nextTargets > 0 then
+                    battle_ui.cursor = math.max(1,
+                        math.min(#nextTargets, battle_ui.cursor))
+                else
+                    battle_ui.cursor = 1
+                end
+            end
+            if #nextTargets > 0 then
+                battle_ui.cursor = math.max(1, math.min(#nextTargets, battle_ui.cursor))
+            else
+                battle_ui.cursor = 1
+            end
+            battle_ui.target_ids = nextTargets
+        else
+            battle_ui.target_ids = nil
+        end
+
         battle_ui.snapshot = snapshot
     end
 
@@ -1106,9 +1158,60 @@ return function(mod)
         return math.max(1, math.min(count, next_cursor))
     end
 
+    local function battle_intent_matches_snapshot(game, snapshot, kind, values)
+        values = type(values) == "table" and values or {}
+        if kind == "back" then
+            return snapshot.prompt == "moves" or snapshot.prompt == "target"
+        elseif kind == "menu" then
+            if snapshot.prompt ~= "menu" then return false end
+            for _, action in ipairs(battle_actions_for(game)) do
+                if action.key == values.choice then return true end
+            end
+        elseif kind == "move" then
+            if snapshot.prompt ~= "moves" then return false end
+            local wantedSlot = tonumber(values.slot)
+            if not wantedSlot then return false end
+            for index, move in ipairs(snapshot.moves or {}) do
+                local nativeSlot = tonumber(move.slot) or index
+                if nativeSlot == wantedSlot then
+                    return move.disabled ~= true and (tonumber(move.pp) or 0) > 0
+                end
+            end
+        elseif kind == "target" then
+            if snapshot.prompt ~= "target" then return false end
+            return target_index(snapshot.targets, values.target) ~= nil
+        elseif kind == "mimic" then
+            if snapshot.prompt ~= "mimic" then return false end
+            local index = tonumber(values.index)
+            return index ~= nil and index % 1 == 0
+                and index >= 1 and index <= #(snapshot.mimicMoves or {})
+        elseif kind == "safari" then
+            if snapshot.prompt ~= "safari"
+                or (tonumber(snapshot.safariBalls) or 0) <= 0 then
+                return false
+            end
+            for _, action in ipairs(BATTLE_SAFARI_ACTIONS) do
+                if action.key == values.action then return true end
+            end
+        end
+        return false
+    end
+
     local function submit_battle_intent(game, kind, values)
         local snapshot = read_battle_snapshot()
-        if not is_owned_battle_prompt(snapshot) then return false end
+        if type(snapshot) ~= "table" then return false end
+        if not is_owned_battle_prompt(snapshot) then
+            sync_battle_ui(game, snapshot)
+            return false
+        end
+        -- Input can be queued just before the engine advances to an animation,
+        -- message or another command phase. Never reinterpret that old input
+        -- using the new phase's revision.
+        if not battle_intent_matches_snapshot(game, snapshot, kind, values) then
+            sync_battle_ui(game, snapshot)
+            return false
+        end
+
         battle_intent_id = battle_intent_id + 1
         local intent = {
             id = battle_intent_id,
@@ -1126,6 +1229,7 @@ return function(mod)
             return false
         end
         battle_ui.snapshot = nil
+        battle_ui.target_ids = nil
         battle_ui.layout = nil
         return true
     end
