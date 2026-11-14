@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 — Ponte de controles virtuais para o menu de batalha
+
+- Encaminhadas as bordas do D-pad e dos botões A/B do overlay Android/iOS pelo mesmo seletor de batalha.
+- Mascarada apenas a origem do overlay durante fases substituídas, preservando entradas físicas e ferramentas de acessibilidade.
+- Adicionado suporte a direção + A no mesmo quadro e toque direto na indicação de retorno.
+- Ampliados os testes do harness para toque simultâneo, prevenção de entrada duplicada e restauração dos métodos nativos.
+
 ## 0.5.0 — Menu de batalha redesenhado
 
 - Criado pelo mod um novo menu de batalha com referência de composição em Pokémon Black/White: bandeja escura, cartões claros, cores de tipo e indicadores de PP.
