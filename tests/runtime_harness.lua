@@ -1330,6 +1330,39 @@ check(#phase_race_env:submitted() == 1
     and phase_race_env:submitted()[1].revision == 51,
     "the refreshed move prompt was not usable after rejecting the stale target input")
 
+-- Even when the prompt remains "target", a newer revision means the event
+-- belongs to an older battle state and must not be submitted with that revision.
+local revision_race_env = make_environment("emerald")
+local revision_race_old = {
+    prompt = "target", kind = "trainer", revision = 60,
+    active = 0, target = 3, targets = { 0, 3 },
+    player = {}, enemy = {}, party = {}, items = {},
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+}
+local revision_race_new = {
+    prompt = "target", kind = "trainer", revision = 61,
+    active = 0, target = 3, targets = { 0, 3 },
+    player = {}, enemy = {}, party = {}, items = {},
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+}
+revision_race_env:set_battle_snapshot(revision_race_old)
+local revision_reads = 0
+revision_race_env.mod.battle.snapshot = function()
+    revision_reads = revision_reads + 1
+    return revision_reads == 1 and revision_race_old or revision_race_new
+end
+revision_race_env:run_hook(
+    "input.key", nil, revision_race_env.game, { phase = "pressed", key = "z" }
+)
+check(#revision_race_env:submitted() == 0,
+    "a target command was replayed against a newer revision of the same prompt")
+
 -- The active actor banner follows the engine when command control moves to
 -- the other player slot; it is not cached from the previous turn.
 double_target_env:set_battle_snapshot({
