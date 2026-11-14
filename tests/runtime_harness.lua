@@ -1012,13 +1012,26 @@ for _, game_id in ipairs(battle_titles) do
         if call.kind == "text" then joined[#joined + 1] = call.value end
     end
     local drawn_text = table.concat(joined, "\n")
+    local is_gen1 = game_id == "red" or game_id == "blue" or game_id == "yellow"
+    local is_gen2 = game_id == "gold" or game_id == "silver" or game_id == "crystal"
+    local item_label = is_gen1 and "ITEM" or is_gen2 and "BOLSA" or "BOLSA"
     check(drawn_text:find("AÇÃO", 1, true) ~= nil
         and drawn_text:find("A: SELECIONAR", 1, true) ~= nil
         and drawn_text:find("LUTAR", 1, true) ~= nil
-        and drawn_text:find("BOLSA", 1, true) ~= nil
+        and drawn_text:find(item_label, 1, true) ~= nil
         and drawn_text:find("POKEMON", 1, true) ~= nil
         and drawn_text:find("FUGIR", 1, true) ~= nil,
         game_id .. ": battle action panel omitted a localized action")
+    local fight_pos = drawn_text:find("LUTAR", 1, true)
+    local pokemon_pos = drawn_text:find("POKEMON", 1, true)
+    local item_pos = drawn_text:find(item_label, 1, true)
+    if is_gen1 or is_gen2 then
+        check(fight_pos < pokemon_pos and pokemon_pos < item_pos,
+            game_id .. ": Kanto/Johto battle order did not put Pokemon before Item/Pack")
+    else
+        check(fight_pos < item_pos and item_pos < pokemon_pos,
+            game_id .. ": Hoenn/Kanto-remake battle order did not put Bag before Pokemon")
+    end
     check(#battle_draw_colors >= 3,
         game_id .. ": battle panel did not draw its version colors")
     battle_accents[game_id] = battle_draw_colors[2]
