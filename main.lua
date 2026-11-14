@@ -851,6 +851,582 @@ return function(mod)
         end)
     end
 
+    -- Party submenus use native descriptors from each generation. Reorder only
+    -- recognized common actions; field moves and mod-added entries keep their
+    -- exact positions and retain their original callbacks and metadata.
+    local PARTY_ROW_ORDER = {
+        stats = 1, summary = 1,
+        switch = 2,
+        move = 3,
+        item = 4, mail = 4,
+        cancel = 5,
+    }
+    local BATTLE_PARTY_ROW_ORDER = {
+        switch = 1,
+        stats = 2, summary = 2,
+        cancel = 3,
+    }
+
+    local function party_row_id(row)
+        if type(row) ~= "table" then return nil end
+        local value = row.id or row.action
+        if type(value) == "string" then return value:lower() end
+        return nil
+    end
+
+    local function organize_party_rows(rows, context)
+        if type(rows) ~= "table" then return rows end
+        context = type(context) == "table" and context or {}
+        local order = context.battle and BATTLE_PARTY_ROW_ORDER or PARTY_ROW_ORDER
+        local output = {}
+        for index, row in ipairs(rows) do output[index] = row end
+
+        local positions, selected = {}, {}
+        for index, row in ipairs(output) do
+            local id = party_row_id(row)
+            local rank = id and order[id] or nil
+            local is_field_move = type(row) == "table"
+                and (row.fieldMove == true or row.move ~= nil or id == "escape")
+            if rank and not is_field_move then
+                positions[#positions + 1] = index
+                selected[#selected + 1] = {
+                    row = row,
+                    rank = rank,
+                    original_index = index,
+                }
+            end
+        end
+
+        table.sort(selected, function(left, right)
+            if left.rank == right.rank then
+                return left.original_index < right.original_index
+            end
+            return left.rank < right.rank
+        end)
+        for index, position in ipairs(positions) do
+            output[position] = selected[index].row
+        end
+        return output
+    end
+
+    if mod:supports("hooks", "ui.party.submenu") then
+        mod.hooks:wrap("ui.party.submenu", function(next, game, rows, mon, context)
+            local output = next(game, rows, mon, context)
+            if type(output) ~= "table" then return output end
+            return organize_party_rows(output, context)
+        end)
+    end
+
+    -- Battle command presentation. Black/White is the layout reference:
+    -- dark command tray, bright white action cards, clear primary action,
+    -- move-type chips and PP at a glance. No sprites, fonts or other assets
+    -- are imported; each game contributes only its own color identity and
+    -- generation-specific corner/spacing treatment.
+    local BATTLE_THEMES = {
+        red       = { accent = { 0.82, 0.22, 0.28 }, shade = { 0.28, 0.08, 0.11 }, radius = 0 },
+        blue      = { accent = { 0.25, 0.45, 0.78 }, shade = { 0.07, 0.15, 0.30 }, radius = 0 },
+        yellow    = { accent = { 0.86, 0.66, 0.17 }, shade = { 0.30, 0.22, 0.05 }, radius = 0 },
+        gold      = { accent = { 0.72, 0.54, 0.20 }, shade = { 0.25, 0.18, 0.06 }, radius = 2 },
+        silver    = { accent = { 0.58, 0.65, 0.75 }, shade = { 0.18, 0.21, 0.27 }, radius = 2 },
+        crystal   = { accent = { 0.22, 0.65, 0.74 }, shade = { 0.05, 0.21, 0.25 }, radius = 2 },
+        firered   = { accent = { 0.83, 0.24, 0.18 }, shade = { 0.30, 0.08, 0.06 }, radius = 4 },
+        leafgreen = { accent = { 0.23, 0.58, 0.35 }, shade = { 0.06, 0.22, 0.12 }, radius = 4 },
+        ruby      = { accent = { 0.74, 0.20, 0.30 }, shade = { 0.28, 0.06, 0.11 }, radius = 3 },
+        sapphire  = { accent = { 0.24, 0.45, 0.77 }, shade = { 0.06, 0.14, 0.29 }, radius = 3 },
+        emerald   = { accent = { 0.20, 0.56, 0.40 }, shade = { 0.05, 0.21, 0.14 }, radius = 3 },
+    }
+
+    local BATTLE_TYPE_COLORS = {
+        NORMAL = { 0.58, 0.59, 0.56 }, FIRE = { 0.88, 0.31, 0.19 },
+        WATER = { 0.22, 0.48, 0.85 }, ELECTRIC = { 0.88, 0.70, 0.20 },
+        GRASS = { 0.30, 0.66, 0.35 }, ICE = { 0.35, 0.72, 0.82 },
+        FIGHTING = { 0.67, 0.24, 0.22 }, POISON = { 0.62, 0.34, 0.69 },
+        GROUND = { 0.72, 0.56, 0.30 }, FLYING = { 0.55, 0.59, 0.82 },
+        PSYCHIC = { 0.83, 0.36, 0.55 }, BUG = { 0.56, 0.64, 0.22 },
+        ROCK = { 0.68, 0.57, 0.32 }, GHOST = { 0.39, 0.34, 0.64 },
+        DRAGON = { 0.40, 0.36, 0.77 }, DARK = { 0.38, 0.34, 0.32 },
+        STEEL = { 0.57, 0.62, 0.70 }, FAIRY = { 0.82, 0.49, 0.68 },
+        MYSTERY = { 0.48, 0.53, 0.59 },
+    }
+
+    local BATTLE_ACTIONS = {
+        { key = "fight", label = "battle_fight" },
+        { key = "item", label = "battle_bag" },
+        { key = "party", label = "battle_pokemon" },
+        { key = "run", label = "battle_run" },
+    }
+
+    local battle_ui = {
+        game = nil,
+        prompt = nil,
+        cursor = 1,
+        snapshot = nil,
+        layout = nil,
+        pointer_captures = {},
+        axis_action = nil,
+    }
+    local battle_intent_id = 0
+
+    local function is_owned_battle_prompt(snapshot)
+        if type(snapshot) ~= "table" then return false end
+        if snapshot.kind == "link" or snapshot.kind == "oldman"
+            or snapshot.kind == "safari" then
+            return false
+        end
+        return snapshot.prompt == "menu"
+            or snapshot.prompt == "moves"
+            or snapshot.prompt == "target"
+    end
+
+    local function read_battle_snapshot()
+        if type(mod.battle) ~= "table" or type(mod.battle.snapshot) ~= "function" then
+            return nil
+        end
+        local ok, snapshot = pcall(mod.battle.snapshot, mod.battle)
+        if not ok or type(snapshot) ~= "table" then return nil end
+        return snapshot
+    end
+
+    local function sync_battle_ui(game, snapshot)
+        if battle_ui.game ~= game then
+            battle_ui.game = game
+            battle_ui.prompt = nil
+            battle_ui.cursor = 1
+            battle_ui.layout = nil
+            battle_ui.pointer_captures = {}
+            battle_ui.axis_action = nil
+        end
+        if battle_ui.prompt ~= snapshot.prompt then
+            battle_ui.prompt = snapshot.prompt
+            battle_ui.cursor = 1
+            if snapshot.prompt == "target" and type(snapshot.targets) == "table" then
+                for index, target in ipairs(snapshot.targets) do
+                    if target == snapshot.target then
+                        battle_ui.cursor = index
+                        break
+                    end
+                end
+            end
+        end
+        battle_ui.snapshot = snapshot
+    end
+
+    local function battle_entry_count(snapshot)
+        if snapshot.prompt == "menu" then return #BATTLE_ACTIONS end
+        if snapshot.prompt == "moves" then
+            return math.max(0, math.min(4, #(snapshot.moves or {})))
+        end
+        if snapshot.prompt == "target" then return #(snapshot.targets or {}) end
+        return 0
+    end
+
+    local function battle_grid_cursor(cursor, count, direction)
+        if count <= 1 then return 1 end
+        local row = math.floor((cursor - 1) / 2)
+        local column = (cursor - 1) % 2
+        local row_count = math.ceil(count / 2)
+        if direction == "left" then
+            column = (column + 1) % 2
+        elseif direction == "right" then
+            column = (column + 1) % 2
+        elseif direction == "up" then
+            row = (row - 1) % row_count
+        elseif direction == "down" then
+            row = (row + 1) % row_count
+        end
+        local next_cursor = row * 2 + column + 1
+        if next_cursor > count then
+            next_cursor = direction == "left" and cursor - 1
+                or direction == "right" and math.min(count, cursor + 1)
+                or cursor
+        end
+        return math.max(1, math.min(count, next_cursor))
+    end
+
+    local function submit_battle_intent(game, kind, values)
+        local snapshot = read_battle_snapshot()
+        if not is_owned_battle_prompt(snapshot) then return false end
+        battle_intent_id = battle_intent_id + 1
+        local intent = {
+            id = battle_intent_id,
+            revision = snapshot.revision,
+            kind = kind,
+        }
+        for key, value in pairs(values or {}) do intent[key] = value end
+
+        local ok, accepted, reason = pcall(mod.battle.submit, mod.battle, intent)
+        if not ok or accepted ~= true then
+            mod.log:warn(
+                "Battle UI command rejected (%s): %s",
+                tostring(kind), tostring(ok and reason or accepted)
+            )
+            return false
+        end
+        battle_ui.snapshot = nil
+        battle_ui.layout = nil
+        return true
+    end
+
+    local function activate_battle_cursor(game, snapshot)
+        sync_battle_ui(game, snapshot)
+        if snapshot.prompt == "menu" then
+            local action = BATTLE_ACTIONS[battle_ui.cursor]
+            if action then
+                return submit_battle_intent(game, "menu", { choice = action.key })
+            end
+        elseif snapshot.prompt == "moves" then
+            local move = snapshot.moves and snapshot.moves[battle_ui.cursor]
+            if move and move.slot then
+                if move.disabled or (tonumber(move.pp) or 0) <= 0 then return false end
+                return submit_battle_intent(game, "move", { slot = move.slot })
+            elseif move then
+                if move.disabled or (tonumber(move.pp) or 0) <= 0 then return false end
+                return submit_battle_intent(game, "move", { slot = battle_ui.cursor })
+            end
+        elseif snapshot.prompt == "target" then
+            local target = snapshot.targets and snapshot.targets[battle_ui.cursor]
+            if target ~= nil then
+                return submit_battle_intent(game, "target", { target = target })
+            end
+        end
+        return false
+    end
+
+    local function navigate_battle(game, action)
+        local snapshot = read_battle_snapshot()
+        if not is_owned_battle_prompt(snapshot) then return false end
+        sync_battle_ui(game, snapshot)
+        local count = battle_entry_count(snapshot)
+        if action == "a" then
+            return activate_battle_cursor(game, snapshot)
+        elseif action == "b" then
+            if snapshot.prompt == "moves" or snapshot.prompt == "target" then
+                return submit_battle_intent(game, "back", {})
+            end
+            return true
+        elseif action == "left" or action == "right"
+            or action == "up" or action == "down" then
+            if count <= 0 then return true end
+            if snapshot.prompt == "target" then
+                if action == "up" then
+                    battle_ui.cursor = ((battle_ui.cursor - 2 + count) % count) + 1
+                elseif action == "down" then
+                    battle_ui.cursor = (battle_ui.cursor % count) + 1
+                end
+            else
+                battle_ui.cursor = battle_grid_cursor(battle_ui.cursor, count, action)
+            end
+            return true
+        end
+        -- A mapped action belongs to the replacement menu even when it has
+        -- no action here (START/SELECT/shoulders must not reach hidden UI).
+        return true
+    end
+
+    local function battle_theme(game)
+        local id = game_id_from(game) or "red"
+        return BATTLE_THEMES[id] or BATTLE_THEMES.red
+    end
+
+    local function battle_layout(snapshot, viewport, theme)
+        local scale = tonumber(viewport.scale) or 1
+        if scale <= 0 then scale = 1 end
+        local width = (tonumber(viewport.gameWidth) or 160 * scale) / scale
+        local height = (tonumber(viewport.gameHeight) or 144 * scale) / scale
+        local panel_height = snapshot.prompt == "moves" and 62
+            or snapshot.prompt == "target" and 54 or 52
+        panel_height = math.min(panel_height, height - 18)
+        local panel = {
+            x = 5, y = height - panel_height - 4,
+            w = width - 10, h = panel_height,
+        }
+        local gap = width >= 200 and 5 or 3
+        local header = 10
+        local content_y = panel.y + header + 3
+        local content_h = panel.h - header - 7
+        local buttons = {}
+
+        if snapshot.prompt == "menu" or snapshot.prompt == "moves" then
+            local cell_w = (panel.w - 10 - gap) / 2
+            local cell_h = (content_h - gap) / 2
+            local entries = snapshot.prompt == "menu" and BATTLE_ACTIONS
+                or snapshot.moves or {}
+            for index = 1, math.min(4, #entries) do
+                local row = math.floor((index - 1) / 2)
+                local column = (index - 1) % 2
+                buttons[index] = {
+                    x = panel.x + 5 + column * (cell_w + gap),
+                    y = content_y + row * (cell_h + gap),
+                    w = cell_w,
+                    h = cell_h,
+                    index = index,
+                }
+            end
+        elseif snapshot.prompt == "target" then
+            local targets = snapshot.targets or {}
+            local row_h = math.min(16, content_h / math.max(1, #targets))
+            for index = 1, #targets do
+                buttons[index] = {
+                    x = panel.x + 5,
+                    y = content_y + (index - 1) * row_h,
+                    w = panel.w - 10,
+                    h = row_h,
+                    index = index,
+                }
+            end
+        end
+
+        return {
+            panel = panel,
+            buttons = buttons,
+            width = width,
+            height = height,
+            scale = scale,
+            theme = theme,
+        }
+    end
+
+    local function draw_battle_text(graphics, value, x, y, width, align, color, size_limit)
+        value = tostring(value or "")
+        if size_limit then value = clip_text(value, size_limit, mod.ui.Font) end
+        graphics.setColor(color[1], color[2], color[3], color[4] or 1)
+        if graphics.printf then
+            graphics.printf(value, x, y, width, align or "left")
+        else
+            graphics.print(value, x, y)
+        end
+    end
+
+    local function draw_battle_card(graphics, rect, label, theme, selected, disabled, metadata)
+        local background = disabled and { 0.72, 0.73, 0.75, 1 }
+            or selected and theme.accent
+            or { 0.94, 0.95, 0.97, 1 }
+        local foreground = selected and { 1, 1, 1, 1 }
+            or disabled and { 0.38, 0.39, 0.41, 1 }
+            or { 0.10, 0.12, 0.16, 1 }
+
+        graphics.setColor(background[1], background[2], background[3], background[4])
+        graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
+        graphics.setColor(theme.shade[1], theme.shade[2], theme.shade[3], 1)
+        graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
+
+        if metadata and metadata.type then
+            local typeColor = BATTLE_TYPE_COLORS[tostring(metadata.type):upper()]
+                or theme.accent
+            local chipWidth = math.min(37, math.max(24, rect.w * 0.34))
+            graphics.setColor(typeColor[1], typeColor[2], typeColor[3], 1)
+            graphics.rectangle("fill", rect.x + rect.w - chipWidth - 3,
+                rect.y + 3, chipWidth, math.max(8, rect.h - 6), theme.radius, theme.radius)
+            draw_battle_text(graphics, tostring(metadata.type):upper(),
+                rect.x + rect.w - chipWidth - 2, rect.y + 4, chipWidth - 2,
+                "center", { 1, 1, 1, 1 }, 7)
+        end
+
+        local text_width = metadata and metadata.type and rect.w * 0.64 or rect.w - 8
+        draw_battle_text(graphics, label, rect.x + 4, rect.y + 3,
+            text_width, "left", foreground, 13)
+
+        if metadata and metadata.pp ~= nil then
+            local ppText = ("PP %s/%s"):format(
+                tostring(metadata.pp), tostring(metadata.maxPp or metadata.pp)
+            )
+            draw_battle_text(graphics, ppText, rect.x + 4, rect.y + rect.h - 10,
+                rect.w - 8, "left", foreground, 12)
+        end
+    end
+
+    local function draw_battle_overlay(game, viewport, snapshot)
+        local graphics = love and love.graphics
+        if not (graphics and graphics.push and graphics.pop and graphics.rectangle
+            and graphics.setColor and graphics.print) then
+            return
+        end
+        local theme = battle_theme(game)
+        sync_battle_ui(game, snapshot)
+        local layout = battle_layout(snapshot, viewport, theme)
+        battle_ui.layout = layout
+        battle_ui.snapshot = snapshot
+
+        local ok, drawError = pcall(function()
+            graphics.push("all")
+            graphics.translate(tonumber(viewport.gameX) or 0,
+                tonumber(viewport.gameY) or 0)
+            graphics.scale(layout.scale, layout.scale)
+
+            local panel = layout.panel
+            graphics.setColor(0.055, 0.065, 0.085, 0.97)
+            graphics.rectangle("fill", panel.x, panel.y, panel.w, panel.h,
+                theme.radius + 2, theme.radius + 2)
+            graphics.setColor(theme.accent[1], theme.accent[2], theme.accent[3], 1)
+            graphics.rectangle("fill", panel.x, panel.y, 3, panel.h,
+                theme.radius, theme.radius)
+
+            local dictionary = TEXT[selected_language()] or TEXT[DEFAULT_LANGUAGE]
+            local title = snapshot.prompt == "menu" and dictionary.battle_action
+                or snapshot.prompt == "moves" and dictionary.battle_moves
+                or dictionary.battle_target
+            draw_battle_text(graphics, title or "ACTION", panel.x + 7,
+                panel.y + 2, panel.w - 14, "left", { 1, 1, 1, 1 }, 16)
+
+            for index, rect in ipairs(layout.buttons) do
+                local selected = index == battle_ui.cursor
+                if snapshot.prompt == "menu" then
+                    local action = BATTLE_ACTIONS[index]
+                    local key = action and action.label or "battle_choose"
+                    local label = dictionary[key] or key:upper()
+                    draw_battle_card(graphics, rect, label, theme, selected, false)
+                elseif snapshot.prompt == "moves" then
+                    local move = snapshot.moves and snapshot.moves[index] or {}
+                    local name = move.name or move.id or "—"
+                    local disabled = move.disabled == true or (tonumber(move.pp) or 0) <= 0
+                    draw_battle_card(graphics, rect, name, theme, selected, disabled, {
+                        type = move.type,
+                        pp = move.pp or 0,
+                        maxPp = move.maxPp or move.pp or 0,
+                    })
+                elseif snapshot.prompt == "target" then
+                    local targetId = snapshot.targets and snapshot.targets[index]
+                    local target
+                    for _, candidate in ipairs(snapshot.battlers or {}) do
+                        if candidate.id == targetId then target = candidate break end
+                    end
+                    local name = target and (target.name or target.species) or ("TARGET " .. tostring(targetId))
+                    local hp = target and target.hp and target.maxHp
+                        and ("  %d/%d HP"):format(target.hp, target.maxHp) or ""
+                    draw_battle_card(graphics, rect, tostring(name) .. hp,
+                        theme, selected, target and target.absent == true)
+                end
+            end
+
+            if snapshot.prompt == "moves" and #layout.buttons == 0 then
+                draw_battle_text(graphics, dictionary.battle_no_moves or "NO USABLE MOVES",
+                    panel.x + 8, panel.y + 24, panel.w - 16,
+                    "left", { 1, 1, 1, 1 }, 22)
+            end
+
+            local help = snapshot.prompt == "menu"
+                and (dictionary.battle_select or "A: SELECT")
+                or (dictionary.battle_back or "B: BACK")
+            draw_battle_text(graphics, help, panel.x + 7, panel.y + panel.h - 9,
+                panel.w - 14, "right", { 0.82, 0.85, 0.90, 1 }, 16)
+            graphics.pop()
+        end)
+        if not ok then
+            pcall(graphics.pop)
+            mod.log:warn("Battle UI draw failed: %s", tostring(drawError))
+        end
+    end
+
+    if mod:supports("hooks", "battle.bottom_ui_visible") then
+        mod.hooks:wrap("battle.bottom_ui_visible", function(next, state)
+            local visible = next(state)
+            local snapshot = read_battle_snapshot()
+            if is_owned_battle_prompt(snapshot) then return false end
+            return visible
+        end)
+    end
+
+    if mod:supports("hooks", "input.key") then
+        mod.hooks:wrap("input.key", function(next, game, event)
+            if type(event) ~= "table" or event.phase ~= "pressed" then
+                return next(game, event)
+            end
+            local snapshot = read_battle_snapshot()
+            if not is_owned_battle_prompt(snapshot) then return next(game, event) end
+            local input = game and game.input
+            local action = input and input.keyBindings
+                and input.keyBindings[event.key]
+            if not action then return next(game, event) end
+            navigate_battle(game, action)
+            return
+        end)
+    end
+
+    if mod:supports("hooks", "input.gamepad") then
+        mod.hooks:wrap("input.gamepad", function(next, game, event)
+            if type(event) ~= "table" then return next(game, event) end
+            local snapshot = read_battle_snapshot()
+            if not is_owned_battle_prompt(snapshot) then
+                battle_ui.axis_action = nil
+                return next(game, event)
+            end
+
+            local input = game and game.input
+            if event.phase == "pressed" then
+                local action
+                if input and type(input.padAction) == "function" then
+                    local ok, mapped = pcall(input.padAction, input, event.button, true)
+                    if ok then action = mapped end
+                end
+                if not action then return next(game, event) end
+                navigate_battle(game, action)
+                return
+            elseif event.phase == "axis" then
+                local action
+                local axis, value = event.axis, tonumber(event.value) or 0
+                if axis == "leftx" or axis == "rightx" then
+                    if value <= -0.55 then action = "left"
+                    elseif value >= 0.55 then action = "right" end
+                elseif axis == "lefty" or axis == "righty" then
+                    if value <= -0.55 then action = "up"
+                    elseif value >= 0.55 then action = "down" end
+                end
+                if action then
+                    if battle_ui.axis_action ~= action then
+                        battle_ui.axis_action = action
+                        navigate_battle(game, action)
+                    end
+                    return
+                end
+                battle_ui.axis_action = nil
+                return next(game, event)
+            end
+            return next(game, event)
+        end)
+    end
+
+    if mod:supports("hooks", "input.pointer") then
+        mod.hooks:wrap("input.pointer", function(next, game, event)
+            if type(event) ~= "table" then return next(game, event) end
+            local pointerKey = tostring(event.source) .. ":" .. tostring(event.id)
+            if event.phase == "released" or event.phase == "cancelled" then
+                if battle_ui.pointer_captures[pointerKey] then
+                    battle_ui.pointer_captures[pointerKey] = nil
+                    return true
+                end
+                return next(game, event)
+            end
+
+            local snapshot = read_battle_snapshot()
+            if not is_owned_battle_prompt(snapshot) then return next(game, event) end
+            if event.phase ~= "pressed" then
+                return battle_ui.pointer_captures[pointerKey] == true
+            end
+
+            local layout = battle_ui.layout
+            if type(layout) ~= "table" or type(event.gameX) ~= "number"
+                or type(event.gameY) ~= "number" then
+                return next(game, event)
+            end
+            local x, y = event.gameX, event.gameY
+            local panel = layout.panel
+            local inside = x >= panel.x and x <= panel.x + panel.w
+                and y >= panel.y and y <= panel.y + panel.h
+            if not inside then return next(game, event) end
+
+            battle_ui.pointer_captures[pointerKey] = true
+            for index, rect in ipairs(layout.buttons) do
+                if x >= rect.x and x <= rect.x + rect.w
+                    and y >= rect.y and y <= rect.y + rect.h then
+                    battle_ui.cursor = index
+                    activate_battle_cursor(game, snapshot)
+                    break
+                end
+            end
+            return true
+        end)
+    end
+
     -- One local profile per game version, shared by all save files for that
     -- title on this installation. This matches the title-level behavior of
     -- console achievement lists without mixing any of the eleven games.
@@ -904,6 +1480,19 @@ return function(mod)
     if mod:supports("hooks", "render.hud") then
         mod.hooks:wrap("render.hud", function(next, game, viewport)
             next(game, viewport)
+            if viewport then
+                local snapshot = read_battle_snapshot()
+                if is_owned_battle_prompt(snapshot) then
+                    draw_battle_overlay(game, viewport, snapshot)
+                else
+                    battle_ui.layout = nil
+                    battle_ui.snapshot = nil
+                    if battle_ui.prompt ~= nil then
+                        battle_ui.prompt = nil
+                        battle_ui.cursor = 1
+                    end
+                end
+            end
             if not toast or toast_remaining <= 0 or not viewport then return end
 
             local achievement = catalog_by_id[toast.id]
