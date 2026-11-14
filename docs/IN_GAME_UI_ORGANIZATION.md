@@ -32,6 +32,10 @@ A sequência interna adotada acompanha as categorias existentes no menu do jogo:
 
 A ordem externa das categorias continua sendo responsabilidade da interface nativa de cada jogo. O mod reorganiza somente os itens dentro das categorias reconhecidas pelo jogo.
 
+## Submenus da equipe
+
+O hook `ui.party.submenu` agrupa ações comuns como STATS/SUMMARY, SWITCH, MOVE, ITEM/MAIL e CANCEL. Movimentos de campo (CUT, FLY, SURF etc.), descritores desconhecidos e linhas adicionadas por outros mods mantêm suas posições e callbacks. O submenu específico de batalha prioriza SWITCH, STATS e CANCEL.
+
 Referências do contrato público: [Reference Hooks](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Hooks) documenta ui.options.rows para as três gerações; [Reference Mod Object](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Mod-Object) documenta que as linhas registradas com mod.options:define aparecem no gerenciador de mods.
 
 ## Compatibilidade com outros mods
