@@ -1,0 +1,52 @@
+# language	key	value
+en	menu	ACHIEVEMENTS
+en	title	ACHIEVEMENTS
+en	progress	PROGRESS
+en	all	ALL
+en	unlocked_filter	UNLOCKED
+en	locked_filter	LOCKED
+en	unlocked	UNLOCKED
+en	locked	LOCKED
+en	secret	SECRET ACHIEVEMENT
+en	hidden_title	???
+en	hidden_description	Unlock this achievement to reveal its details.
+en	empty_title	NO ACHIEVEMENTS YET
+en	empty_description	The list for this game is being prepared.
+en	details	A: DETAILS
+en	back	B: BACK
+en	filter	LEFT/RIGHT: FILTER
+en	notification	ACHIEVEMENT UNLOCKED
+pt-BR	menu	CONQUISTAS
+pt-BR	title	CONQUISTAS
+pt-BR	progress	PROGRESSO
+pt-BR	all	TODAS
+pt-BR	unlocked_filter	DESBLOQUEADAS
+pt-BR	locked_filter	BLOQUEADAS
+pt-BR	unlocked	DESBLOQUEADA
+pt-BR	locked	BLOQUEADA
+pt-BR	secret	CONQUISTA SECRETA
+pt-BR	hidden_title	???
+pt-BR	hidden_description	Desbloqueie esta conquista para revelar os detalhes.
+pt-BR	empty_title	AINDA SEM CONQUISTAS
+pt-BR	empty_description	A lista deste jogo está sendo preparada.
+pt-BR	details	A: DETALHES
+pt-BR	back	B: VOLTAR
+pt-BR	filter	ESQ/DIR: FILTRO
+pt-BR	notification	CONQUISTA DESBLOQUEADA
+es	menu	LOGROS
+es	title	LOGROS
+es	progress	PROGRESO
+es	all	TODOS
+es	unlocked_filter	DESBLOQUEADOS
+es	locked_filter	BLOQUEADOS
+es	unlocked	DESBLOQUEADO
+es	locked	BLOQUEADO
+es	secret	LOGRO SECRETO
+es	hidden_title	???
+es	hidden_description	Desbloquea este logro para revelar sus detalles.
+es	empty_title	TODAVÍA NO HAY LOGROS
+es	empty_description	La lista de este juego se está preparando.
+es	details	A: DETALLES
+es	back	B: VOLVER
+es	filter	IZQ/DER: FILTRO
+es	notification	LOGRO DESBLOQUEADO

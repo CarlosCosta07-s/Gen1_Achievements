@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "catalog_source": "achievements.tsv",
   "supported_languages": ["en", "pt-BR", "es"],
   "games": {
     "red": [],

@@ -2,52 +2,67 @@
 
 Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire e Emerald no Gen1Recomp.
 
-> **Estado:** fundação do projeto. A seleção de idioma e os onze catálogos independentes já estão definidos. As conquistas jogáveis serão adicionadas após validar seus gatilhos por versão e pesquisar referências adequadas na comunidade.
+> **Estado:** sistema-base do menu e da tela de conquistas implementado. O menu START recebe **Achievements / Conquistas / Logros**, com uma tela própria, filtros, detalhes, progresso incremental e notificações de desbloqueio. O catálogo ainda está vazio enquanto as primeiras conquistas são pesquisadas e validadas.
 
-## Objetivos
+## Experiência dentro do jogo
 
-- Um único mod Lua usando a Portable Mod API 3.
-- Catálogos e desbloqueios independentes para cada um dos onze jogos.
-- Nomes e descrições em **English**, **Português (Brasil)** e **Español**.
-- Seleção de idioma persistente no launcher, sem depender do idioma do jogo.
-- Referências reconhecíveis a cada jogo e a materiais relacionados: jogos, anime, Pokémon Adventures, personagens, locais, memes e cultura da comunidade.
-- Progresso local, sem exigir conexão com a internet.
-- Nenhuma ROM, save, firmware, arte extraída ou outro dado proprietário incluído no repositório.
+- Nova opção no menu START, posicionada antes de OPTIONS.
+- Tela de conquistas controlada pelo D-pad e pelos botões A/B/START.
+- Filtros All / Unlocked / Locked.
+- Detalhes e descrições das conquistas.
+- Contadores de progresso para conquistas incrementais.
+- Notificação na tela quando uma conquista é desbloqueada.
+- Conquistas secretas podem esconder título e descrição até o desbloqueio.
 
-## Idioma
+A interface usa os widgets e hooks oficiais da Portable Mod API 3. O item do menu e a tela são registrados pelo próprio mod; não é necessário modificar o código-base do Gen1Recomp para adicionar a entrada ao menu START.
 
-A primeira implementação usa a opção oficial `mod.options` chamada `achievement_language`. O Gen1Recomp exibe opções de mod no gerenciador de mods do launcher e as mantém mesmo após iniciar um New Game.
+## Jogos e perfis
 
-Valores:
+Os onze jogos têm catálogos e arquivos de progresso independentes:
+- Red, Blue e Yellow;
+- Gold, Silver e Crystal;
+- FireRed e LeafGreen;
+- Ruby, Sapphire e Emerald.
+
+O progresso é armazenado pelo título do jogo, compartilhado entre os saves desse título na mesma instalação. A persistência usa `mod.cache`, que é local à instalação. Ainda não há sincronização de conta ou nuvem entre dispositivos.
+
+## Idiomas
+
+O idioma escolhido no gerenciador de mods do launcher controla os textos da tela, nomes e descrições:
 - `en` — English
-- `pt-BR` — Português (Brasil), padrão inicial
+- `pt-BR` — Português (Brasil), padrão
 - `es` — Español
 
-O objetivo final é exibir também esse seletor diretamente em **Extras → Conquistas**. Isso requer uma integração complementar no código do launcher; a API pública de mods não documenta um mecanismo para adicionar uma nova aba ao launcher.
+## Catálogo
 
-## Estrutura
+`data/achievements.tsv` é a fonte de dados executada pelo mod. Cada linha declara jogo, id, evento, condição, tipo de progresso, se é secreta, título e descrição nos três idiomas.
 
-- `manifest.json` — manifesto API 3 para os onze jogos.
-- `main.lua` — definição da opção de idioma e evento de alteração.
-- `data/games.json` — lista ordenada dos jogos.
-- `data/achievements.json` — onze catálogos separados e esquema inicial.
-- `data/ui_locales.json` — textos de interface nas três línguas.
-- `docs/` — arquitetura, regras de nomes e integração do launcher.
-- `tests/validate_catalog.py` — valida o contrato dos dados e das traduções.
+O arquivo está inicialmente sem conquistas publicadas. Não adicionamos nomes genéricos nem gatilhos inventados: cada entrada será criada após pesquisa das referências do jogo e da comunidade, seguida de validação do evento no Gen1Recomp.
+
+## Arquivos principais
+
+- `manifest.json` — Portable Mod API 3 e os onze jogos.
+- `main.lua` — menu START, tela, persistência, eventos e notificações.
+- `data/achievements.tsv` — catálogo localizado.
+- `data/games.json` — títulos e ordem dos jogos.
+- `data/ui_locales.tsv` — textos de interface carregados pelo mod.\n- `data/ui_locales.json` — espelho legível das mesmas traduções para ferramentas e futuras integrações.
+- `docs/` — arquitetura, armazenamento e integração.
+- `tests/validate_catalog.py` — validação automatizada do catálogo.
 
 ## Validação
-
-Execute:
 
 ```bash
 python3 tests/validate_catalog.py
 ```
 
-A validação confirma a presença dos onze jogos, a separação dos catálogos e os três idiomas obrigatórios em cada conquista cadastrada.
+A validação verifica os onze jogos, ids únicos, eventos conhecidos, condições e traduções obrigatórias.
 
 ## Referências técnicas
 
-- [Gen1Recomp — Native modding](https://github.com/bryanthaboi/gen1recomp/blob/dev/docs/modding.md)
-- [Portable Mods — Gen 1, 2 and 3](https://github.com/bryanthaboi/gen1recomp/wiki/Guide-Portable-Mods)
-- [Reference Events](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Events)
-- [Save Model](https://github.com/bryanthaboi/gen1recomp/wiki/Concepts-Save-Model)
+- [Cookbook: UI and Infrastructure](https://github.com/bryanthaboi/gen1recomp/wiki/Cookbook-UI-And-Infrastructure)
+- [Reference: Mod Object](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Mod-Object)
+- [Reference: Events](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Events)
+- [Reference: Hooks](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Hooks)
+- [Concepts: Save Model](https://github.com/bryanthaboi/gen1recomp/wiki/Concepts-Save-Model)
+
+Nenhuma ROM, save, firmware, imagem extraída ou outro dado proprietário é incluído no repositório.

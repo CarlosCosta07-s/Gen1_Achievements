@@ -1,51 +1,61 @@
-# Arquitetura inicial
+# Arquitetura do Gen1 Achievements
 
-## Mod portátil
+## Interface dentro do jogo
 
-O projeto usa a Portable Mod API 3 do Gen1Recomp: um manifesto e um entry point Lua para as três gerações. A declaração de jogos lista explicitamente as onze versões, em vez de usar somente `gen1`, `gen2` e `gen3`, para tornar a cobertura pretendida verificável.
+A implementação usa as superfícies oficiais da Portable Mod API 3:
+- Hook `ui.start_menu.items` para inserir a opção antes de `OPTION`.
+- `mod.content.screens:register` para registrar a tela própria.
+- `mod.ui.push` para abrir a tela a partir da opção do menu.
+- Tela com `update(dt)` e `draw()`, usando `game.input:wasPressed` para D-pad, A, B e START.
 
-## Identidade dos jogos
+O mesmo contrato é usado nas três gerações. A opção do menu ajusta sua largura automaticamente com base no maior rótulo, permitindo nomes localizados mais longos.
 
-Cada versão possui uma chave própria em `data/achievements.json`:
+## Comportamento de console
 
-- Red, Blue e Yellow não compartilham conquistas.
-- Gold, Silver e Crystal não compartilham conquistas.
-- FireRed e LeafGreen não compartilham conquistas.
-- Ruby, Sapphire e Emerald não compartilham conquistas.
+A tela implementa:
+- resumo total/desbloqueadas;
+- filtros geral, desbloqueadas e bloqueadas;
+- navegação por lista e tela de detalhes;
+- conquistas secretas;
+- progresso numérico em objetivos incrementais;
+- notificação curta na tela após o desbloqueio.
 
-O progresso nunca será agregado entre versões diferentes. O launcher deverá apresentar os onze jogos separadamente.
+O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`.
 
-## Localização
+## Fonte de dados
 
-Os idiomas suportados são `en`, `pt-BR` e `es`. Toda conquista cadastrada deve conter:
-- um título nos três idiomas;
-- uma descrição nos três idiomas;
-- um identificador estável e exclusivo;
-- um gatilho validado no jogo correspondente;
-- uma nota interna explicando a referência que inspirou o nome.
+`data/achievements.tsv` é a fonte de dados executada pelo mod. Colunas (15, separadas por TAB):
 
-Os identificadores e as condições são independentes do idioma. Alterar o idioma muda somente os textos apresentados, nunca o desbloqueio ou o progresso.
+1. game
+2. id
+3. event
+4. match_field
+5. operator (`any`, `equals`, `at_least`, `truthy`)
+6. match_value
+7. mode (`instant` ou `counter`)
+8. target
+9. secret (`true` / `false`)
+10. title_en
+11. description_en
+12. title_pt-BR
+13. description_pt-BR
+14. title_es
+15. description_es
 
-A preferência é definida por `mod.options`, que fica fora dos saves e sobrevive a New Game. O valor padrão inicial é Português (Brasil).
+Para `operator=any`, use `*` em `match_field`. Em modo `counter`, cada ocorrência que satisfaz a condição incrementa o valor persistido até `target`.
 
-## Eventos do jogo
+Eventos disponíveis na referência incluem `pokemon.caught`, `pokemon.level_up`, `pokemon.evolved`, `pokemon.move_learned`, `battle.ended`, `battle.started` e `map.entered`; o mod valida a disponibilidade do evento antes de assinar.
 
-A API 3 documenta eventos úteis, entre eles `pokemon.caught`, `pokemon.evolved`, `pokemon.level_up`, `pokemon.move_learned`, `battle.ended` e eventos de mundo. Antes de uma conquista usar um evento, é necessário verificar:
-1. se o evento tem chamada nativa em cada versão alvo;
-2. o payload e o momento exato em que é emitido;
-3. se o evento representa a ação desejada (por exemplo, captura selvagem não equivale necessariamente a receber um Pokémon por presente).
+## Persistência e identidade
 
-Não usar nomes de eventos inferidos nem presumir que eventos exclusivos de uma geração existem nas outras.
+O perfil de conquistas é por instalação e por título, não por save:
+- `mod.cache:read/write("profiles/red.dat")`, por exemplo;
+- cada uma das onze versões usa um caminho separado;
+- começar um New Game não reinicia conquistas do mesmo título;
+- Red não compartilha progresso com Blue ou Yellow, e assim por diante.
 
-## Persistência — decisão ainda em aberto
+Esse comportamento é mais próximo de conquistas vinculadas ao título em consoles modernos do que de objetivos presos a um save. O limite atual é que `mod.cache` é local à instalação. Não é uma conta online e não sincroniza dados entre dispositivos ou usuários do mesmo aplicativo.
 
-A documentação do motor distingue:
-- `mod.options`: preferências do jogador, globais ao mod e persistentes entre New Game;
-- `mod.save`: dados que acompanham o save normal;
-- `mod.storage`: dados persistentes separados, associados à versão do jogo e à identidade de uma partida.
+## Idioma
 
-O projeto ainda não fixa se duas partidas diferentes do mesmo jogo compartilham o conjunto de conquistas. Essa decisão deve ser confirmada antes de escolher o backend definitivo. Em qualquer opção, os onze jogos permanecem separados.
-
-## Integração visual
-
-O catálogo e a localização são dados independentes do launcher. A página **Extras → Conquistas** deverá ler esses dados e exibir cartões separados por jogo, com total, desbloqueadas, percentual e histórico. O seletor de idioma deve aparecer nessa própria página e atualizar tanto títulos quanto descrições.
+`mod.options` persiste `achievement_language` fora do save do jogo e oferece English, Português (Brasil) e Español. A tela carrega os textos de `data/ui_locales.tsv`, espelhados em JSON para ferramentas. O mesmo valor é usado para nomes e descrições; IDs, condições e progresso independem do idioma.

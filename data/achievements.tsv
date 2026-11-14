@@ -1,0 +1,4 @@
+# game	id	event	match_field	operator	match_value	mode	target	secret	title_en	description_en	title_pt-BR	description_pt-BR	title_es	description_es
+# Operators: any, equals, at_least, truthy. Modes: instant, counter.
+# For counter rows, target is the number of matching event occurrences required.
+# Use '*' as match_field with operator 'any' to accept every occurrence of the event.
