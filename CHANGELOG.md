@@ -1,3 +1,10 @@
+## 0.5.5 — Compatibilidade dos snapshots entre gerações
+
+- PP ausente agora é tratado como valor desconhecido (`--/--`), não como zero; golpes só são bloqueados por PP quando o valor numérico é conhecido e igual ou inferior a zero, ou quando o adaptador os marca como desabilitados.
+- Preservado o slot original dos golpes quando a lista compactada da terceira geração não corresponde à posição visual.
+- Reforçada a seleção de alvos da terceira geração para manter IDs nativos esparsos, sem confundi-los com índices da grade.
+- Ampliado o harness com casos de PP desconhecido, PP zero, slot 3 e alvos nativos 0/3; documentadas as diferenças dos contratos Gen 1, Gen 2 e Gen 3.
+
 ## 0.5.4 — Legibilidade dos cartões de golpe
 
 - Separado o nome do golpe da faixa inferior de tipo e PP, evitando colisões na resolução lógica padrão.
