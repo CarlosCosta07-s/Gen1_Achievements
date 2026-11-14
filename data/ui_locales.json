@@ -37,7 +37,11 @@
     "battle_safari_bait": "BAIT",
     "battle_safari_rock": "ROCK",
     "battle_safari_balls": "BALLS",
-    "battle_no_mimic_moves": "NO MOVES TO COPY"
+    "battle_no_mimic_moves": "NO MOVES TO COPY",
+    "battle_active": "ACTIVE",
+    "battle_target_active": "ACTIVE",
+    "battle_target_ally": "ALLY",
+    "battle_target_foe": "FOE"
   },
   "pt-BR": {
     "menu": "CONQUISTAS",
@@ -77,7 +81,11 @@
     "battle_safari_bait": "ISCA",
     "battle_safari_rock": "PEDRA",
     "battle_safari_balls": "BOLAS",
-    "battle_no_mimic_moves": "NENHUM GOLPE PARA COPIAR"
+    "battle_no_mimic_moves": "NENHUM GOLPE PARA COPIAR",
+    "battle_active": "ATIVO",
+    "battle_target_active": "ATIVO",
+    "battle_target_ally": "ALIADO",
+    "battle_target_foe": "INIMIGO"
   },
   "es": {
     "menu": "LOGROS",
@@ -117,6 +125,10 @@
     "battle_safari_bait": "CEBO",
     "battle_safari_rock": "ROCA",
     "battle_safari_balls": "BOLAS",
-    "battle_no_mimic_moves": "NINGÚN MOVIMIENTO PARA COPIAR"
+    "battle_no_mimic_moves": "NINGÚN MOVIMIENTO PARA COPIAR",
+    "battle_active": "ACTIVO",
+    "battle_target_active": "ACTIVO",
+    "battle_target_ally": "ALIADO",
+    "battle_target_foe": "RIVAL"
   }
 }
