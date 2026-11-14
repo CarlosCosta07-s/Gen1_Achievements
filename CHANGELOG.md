@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.4 — Localização e visibilidade das conquistas
+
+- Exibida a orientação de navegação dos filtros no rodapé da lista, nos três idiomas, sem ocupar as linhas dos objetivos.
+- Ampliados os testes de UI para todos os onze jogos e os três idiomas, conferindo rótulo do menu, título, total e filtro.
+- Verificada a composição com itens de menu inseridos por outros mods.
+- Adicionado teste de que conquistas secretas permanecem ocultas ao abrir a tela e só revelam título/descrição depois do evento real de desbloqueio.
+
 ## 0.4.3 — Testes da interface e limite do launcher
 
 - Ampliado o ambiente de teste para simular os hooks e a navegação real da tela registrada pelo mod.
