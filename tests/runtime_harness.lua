@@ -1121,36 +1121,81 @@ for _, call in ipairs(battle_draw_calls) do
 end
 check(table.concat(empty_text, "\n"):find("SEM GOLPES USÁVEIS", 1, true) ~= nil,
     "empty move menu did not show the localized empty state")
+-- Gen 3 keeps the original move slot even when the snapshot list is compacted.
+-- Missing PP is unknown, not zero, and must remain selectable.
+local gen3_move_env = make_environment("emerald")
+local gen3_move_snapshot = {
+    prompt = "moves", kind = "wild", revision = 1,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "HIDDEN_POWER", name = "HIDDEN POWER", type = "DARK",
+            slot = 3, pp = nil, maxPp = nil },
+    },
+}
+gen3_move_env:set_battle_snapshot(gen3_move_snapshot)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+gen3_move_env:run_hook("render.hud", nil, gen3_move_env.game, base_viewport)
+local gen3_move_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then gen3_move_text[#gen3_move_text + 1] = call.value end
+end
+local gen3_move_rendered = table.concat(gen3_move_text, "\n")
+check(gen3_move_rendered:find("PP --/--", 1, true) ~= nil,
+    "missing Gen 3 PP was displayed as zero instead of unknown")
+gen3_move_env:run_hook(
+    "input.key", nil, gen3_move_env.game, { phase = "pressed", key = "z" }
+)
+check(#gen3_move_env:submitted() == 1
+    and gen3_move_env:submitted()[1].kind == "move"
+    and gen3_move_env:submitted()[1].slot == 3,
+    "Gen 3 move with unknown PP was disabled or submitted with the visual index")
 
--- Double-battle targeting uses the target IDs exposed by the portable snapshot.
+-- Known zero PP remains disabled and cannot be submitted.
+local exhausted_env = make_environment("emerald")
+exhausted_env:set_battle_snapshot({
+    prompt = "moves", kind = "wild", revision = 1,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "STRUGGLE_TEST", name = "STRUGGLE TEST", type = "NORMAL",
+            slot = 2, pp = 0, maxPp = 10 },
+    },
+})
+exhausted_env:run_hook(
+    "input.key", nil, exhausted_env.game, { phase = "pressed", key = "z" }
+)
+check(#exhausted_env:submitted() == 0,
+    "a move with known zero PP was incorrectly enabled")
+
+
+-- Gen 3 can expose sparse native battler IDs in double battles.
+-- A native battler ID is not necessarily the visual list index.
 local target_snapshot = {
-    prompt = "target", kind = "wild", revision = 4, target = 0,
-    targets = { 0, 1, 2, 3 },
+    prompt = "target", kind = "wild", revision = 1, target = 3,
+    targets = { 0, 3 },
     battlers = {
         { id = 0, name = "PIKACHU", hp = 35, maxHp = 35 },
-        { id = 1, name = "PIDGEOTTO", hp = 25, maxHp = 40 },
-        { id = 2, name = "GEODUDE", hp = 19, maxHp = 30 },
         { id = 3, name = "RATTATA", hp = 20, maxHp = 20 },
     },
     player = {}, enemy = {}, party = {}, moves = {}, items = {},
 }
-command_env:set_battle_snapshot(target_snapshot)
-command_env:run_hook(
-    "input.key", nil, command_env.game, { phase = "pressed", key = "z" }
+local target_env = make_environment("emerald")
+target_env:set_battle_snapshot(target_snapshot)
+target_env:run_hook(
+    "input.key", nil, target_env.game, { phase = "pressed", key = "z" }
 )
-check(#command_env:submitted() == 3
-    and command_env:submitted()[3].kind == "target"
-    and command_env:submitted()[3].target == 0
-    and command_env:submitted()[3].revision == 4,
-    "double-battle target did not submit the native battler ID")
+check(#target_env:submitted() == 1
+    and target_env:submitted()[1].kind == "target"
+    and target_env:submitted()[1].target == 3
+    and target_env:submitted()[1].revision == 1,
+    "Gen 3 sparse target IDs were confused with visual list indices")
 
--- B returns from the move/target selector using the same validated API.
+-- B returns from the move selector using the generation-neutral intent.
 command_env:set_battle_snapshot(move_snapshot)
 command_env:run_hook(
     "input.key", nil, command_env.game, { phase = "pressed", key = "x" }
 )
-check(#command_env:submitted() == 4
-    and command_env:submitted()[4].kind == "back",
+check(#command_env:submitted() == 3
+    and command_env:submitted()[3].kind == "back",
     "B did not return from the native move selector")
 
 -- The pointer consumes only presses inside the drawn command tray; it never
@@ -1298,4 +1343,4 @@ local visible = command_env:run_hook(
 check(visible == true,
     "native battle UI was hidden during a non-interactive battle phase")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, battle command and touch UI, all 11 games, 3 locales, secret visibility and in-game OPTIONS row ordering verified."):format(#rows))
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, Gen 1/2/3 battle contracts, original move slots, sparse Gen 3 targets, touch UI, all 11 games, 3 locales, secret visibility and in-game OPTIONS row ordering verified."):format(#rows))
