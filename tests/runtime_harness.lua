@@ -1309,7 +1309,7 @@ check(double_target_rendered:find("ATIVO: RAICHU", 1, true) ~= nil
 local double_health_fill = false
 for _, call in ipairs(battle_draw_calls) do
     if call.kind == "rectangle" and call.mode == "fill"
-        and call.h == 1 and call.w > 100 and call.w < 110 then
+        and call.h == 1 and call.w > 90 and call.w < 100 then
         double_health_fill = true
         break
     end
