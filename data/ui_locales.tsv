@@ -92,3 +92,24 @@ pt-BR	battle_item	ITEM
 pt-BR	battle_pack	BOLSA
 es	battle_item	OBJETO
 es	battle_pack	MOCHILA
+en	battle_mimic	MIMIC
+en	battle_safari	SAFARI
+en	battle_safari_ball	BALL
+en	battle_safari_bait	BAIT
+en	battle_safari_rock	ROCK
+en	battle_safari_balls	BALLS
+en	battle_no_mimic_moves	NO MOVES TO COPY
+pt-BR	battle_mimic	MÍMICA
+pt-BR	battle_safari	SAFÁRI
+pt-BR	battle_safari_ball	BOLA
+pt-BR	battle_safari_bait	ISCA
+pt-BR	battle_safari_rock	PEDRA
+pt-BR	battle_safari_balls	BOLAS
+pt-BR	battle_no_mimic_moves	NENHUM GOLPE PARA COPIAR
+es	battle_mimic	IMITACIÓN
+es	battle_safari	SAFARI
+es	battle_safari_ball	BOLA
+es	battle_safari_bait	CEBO
+es	battle_safari_rock	ROCA
+es	battle_safari_balls	BOLAS
+es	battle_no_mimic_moves	NINGÚN MOVIMIENTO PARA COPIAR
