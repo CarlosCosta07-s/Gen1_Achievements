@@ -425,9 +425,21 @@ return function(mod)
         return true
     end
 
+    local function read_event_field(event, path)
+        if type(path) ~= "string" or path == "" or path == "*" then
+            return nil
+        end
+
+        local value = event
+        for segment in path:gmatch("[^%.]+") do
+            if type(value) ~= "table" then return nil end
+            value = value[segment]
+        end
+        return value
+    end
+
     local function event_matches(achievement, event)
-        local field = achievement.field
-        local actual = field ~= "" and field ~= "*" and event[field] or nil
+        local actual = read_event_field(event, achievement.field)
 
         if achievement.operator == "any" then
             return true
@@ -698,13 +710,16 @@ return function(mod)
     -- START menu. The menu grows left as needed for the localized label.
     if mod:supports("hooks", "ui.start_menu.items") then
         mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
-            mod.ui.insertBefore(items, "OPTION", {
+            -- Compose with the downstream menu first so other mods' rows survive.
+            local output = next(game, items)
+            if type(output) ~= "table" then return output end
+
+            return mod.ui.insertAfter(output, "SAVE", {
                 label = text("menu"),
                 onSelect = function()
                     mod.ui.push(game, SCREEN_ID)
                 end,
             })
-            return next(game, items)
         end)
     end
 

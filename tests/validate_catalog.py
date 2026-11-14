@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Gen1 Achievements' title-scoped catalog and localization contract."""
+"""Validate Gen1 Achievements' per-title catalog and localization contract."""
 
 from __future__ import annotations
 
@@ -45,6 +45,7 @@ def validate_catalog() -> int:
     assert list(catalog_data.get("games", {}).keys()) == GAMES
     assert catalog_data.get("supported_languages") == LANGUAGES
     assert list(locales.keys()) == LANGUAGES
+
     required_locale_keys = {
         "menu", "title", "progress", "all", "unlocked_filter",
         "locked_filter", "unlocked", "locked", "hidden_title",
@@ -59,7 +60,7 @@ def validate_catalog() -> int:
     locale_rows: dict[str, dict[str, str]] = {language: {} for language in LANGUAGES}
     with (ROOT / "data/ui_locales.tsv").open("r", encoding="utf-8") as handle:
         for raw in handle:
-            line = raw.rstrip()
+            line = raw.rstrip("\r\n")
             if not line or line.startswith("#"):
                 continue
             fields = line.split("\t")
@@ -77,6 +78,7 @@ def validate_catalog() -> int:
         )
 
     seen: set[str] = set()
+    ids_by_game: dict[str, list[str]] = {game: [] for game in GAMES}
     rows = 0
     with (ROOT / "data/achievements.tsv").open("r", encoding="utf-8") as handle:
         for line_number, raw in enumerate(handle, start=1):
@@ -96,12 +98,23 @@ def validate_catalog() -> int:
             assert achievement_id not in seen, f"duplicate achievement id: {achievement_id}"
             seen.add(achievement_id)
             assert event in EVENTS, f"row {line_number}: unverified event {event!r}"
+            assert match_field == "*" or (
+                match_field
+                and not match_field.startswith(".")
+                and not match_field.endswith(".")
+                and ".." not in match_field
+                and all(part.replace("_", "").isalnum()
+                        for part in match_field.split("."))
+            ), f"row {line_number}: invalid event field path"
             assert operator in OPERATORS, f"row {line_number}: invalid operator"
+            if operator == "equals":
+                assert match_value != "", f"row {line_number}: equals requires a value"
             assert mode in MODES, f"row {line_number}: invalid mode"
             assert secret in {"true", "false"}
             assert all(value.strip() for value in (
                 title_en, desc_en, title_pt, desc_pt, title_es, desc_es
             )), f"row {line_number}: every achievement requires all translations"
+
             if mode == "counter":
                 assert target.isdigit() and int(target) > 0, (
                     f"row {line_number}: counter target must be a positive integer"
@@ -109,7 +122,14 @@ def validate_catalog() -> int:
             else:
                 assert target in {"", "0"}, f"row {line_number}: instant target must be empty"
 
+            ids_by_game[game].append(achievement_id)
             rows += 1
+
+    for game in GAMES:
+        assert ids_by_game[game], f"{game}: expected at least one achievement"
+        assert catalog_data["games"][game] == ids_by_game[game], (
+            f"{game}: JSON index does not match achievements.tsv"
+        )
 
     print(
         f"Catalog contract OK: {len(GAMES)} independent games, "

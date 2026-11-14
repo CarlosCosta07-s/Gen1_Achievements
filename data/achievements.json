@@ -1,18 +1,44 @@
 {
   "schema_version": 1,
   "catalog_source": "achievements.tsv",
-  "supported_languages": ["en", "pt-BR", "es"],
+  "supported_languages": [
+    "en",
+    "pt-BR",
+    "es"
+  ],
   "games": {
-    "red": [],
-    "blue": [],
-    "yellow": [],
-    "gold": [],
-    "silver": [],
-    "crystal": [],
-    "firered": [],
-    "leafgreen": [],
-    "ruby": [],
-    "sapphire": [],
-    "emerald": []
+    "red": [
+      "red_safari_scyther"
+    ],
+    "blue": [
+      "blue_safari_pinsir"
+    ],
+    "yellow": [
+      "yellow_pikachu_partner"
+    ],
+    "gold": [
+      "gold_tin_tower_rainbow"
+    ],
+    "silver": [
+      "silver_whirl_islands_guardian"
+    ],
+    "crystal": [
+      "crystal_eusine_pursuit"
+    ],
+    "firered": [
+      "firered_mt_ember_moltres"
+    ],
+    "leafgreen": [
+      "leafgreen_mt_ember_magmar"
+    ],
+    "ruby": [
+      "ruby_continent_awakens"
+    ],
+    "sapphire": [
+      "sapphire_too_much_water"
+    ],
+    "emerald": [
+      "emerald_sky_pillar_peacekeeper"
+    ]
   }
 }

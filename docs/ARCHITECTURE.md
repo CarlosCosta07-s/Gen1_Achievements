@@ -3,7 +3,7 @@
 ## Interface dentro do jogo
 
 A implementação usa as superfícies oficiais da Portable Mod API 3:
-- Hook `ui.start_menu.items` para inserir a opção antes de `OPTION`.
+- Hook `ui.start_menu.items` para inserir a opção logo depois de `SAVE`, mantendo-a antes de `OPTION`.
 - `mod.content.screens:register` para registrar a tela própria.
 - `mod.ui.push` para abrir a tela a partir da opção do menu.
 - Tela com `update(dt)` e `draw()`, usando `game.input:wasPressed` para D-pad, A, B e START.
@@ -20,7 +20,7 @@ A tela implementa:
 - progresso numérico em objetivos incrementais;
 - notificação curta na tela após o desbloqueio.
 
-O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`.
+O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`. A primeira rodada usa `pokemon.caught` nas versões correspondentes e `pokemon.level_up` com `mon.species=PIKACHU` em Yellow.
 
 ## Fonte de dados
 
@@ -42,7 +42,7 @@ O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o e
 14. title_es
 15. description_es
 
-Para `operator=any`, use `*` em `match_field`. Em modo `counter`, cada ocorrência que satisfaz a condição incrementa o valor persistido até `target`.
+Para `operator=any`, use `*` em `match_field`. Os campos também aceitam caminhos aninhados, como `mon.species`. Em modo `counter`, cada ocorrência que satisfaz a condição incrementa o valor persistido até `target`.
 
 Eventos disponíveis na referência incluem `pokemon.caught`, `pokemon.level_up`, `pokemon.evolved`, `pokemon.move_learned`, `battle.ended`, `battle.started` e `map.entered`; o mod valida a disponibilidade do evento antes de assinar.
 

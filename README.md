@@ -2,7 +2,7 @@
 
 Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire e Emerald no Gen1Recomp.
 
-> **Estado:** sistema-base do menu e da tela de conquistas implementado. O menu START recebe **Achievements / Conquistas / Logros**, com uma tela própria, filtros, detalhes, progresso incremental e notificações de desbloqueio. O catálogo ainda está vazio enquanto as primeiras conquistas são pesquisadas e validadas.
+> **Estado:** menu START, tela própria, filtros, detalhes, progresso, persistência local e notificações implementados. A primeira rodada agora contém 11 conquistas — uma por jogo — com nomes e descrições nos três idiomas.
 
 ## Experiência dentro do jogo
 
@@ -35,9 +35,9 @@ O idioma escolhido no gerenciador de mods do launcher controla os textos da tela
 
 ## Catálogo
 
-`data/achievements.tsv` é a fonte de dados executada pelo mod. Cada linha declara jogo, id, evento, condição, tipo de progresso, se é secreta, título e descrição nos três idiomas.
+`data/achievements.tsv` é a fonte de dados executada pelo mod. Cada linha declara jogo, id, evento, condição (inclusive caminhos aninhados como mon.species), tipo de progresso, se é secreta, título e descrição nos três idiomas.
 
-O arquivo está inicialmente sem conquistas publicadas. Não adicionamos nomes genéricos nem gatilhos inventados: cada entrada será criada após pesquisa das referências do jogo e da comunidade, seguida de validação do evento no Gen1Recomp.
+Cada jogo já possui uma conquista inicial. Os nomes utilizam referências aos jogos e à comunidade; as condições usam eventos do motor documentados e são validadas por versão. Novas conquistas serão adicionadas em rodadas posteriores.
 
 ## Arquivos principais
 

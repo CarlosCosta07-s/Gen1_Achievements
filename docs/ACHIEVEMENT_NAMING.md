@@ -28,3 +28,8 @@ Cada conquista futura terá uma nota interna com:
 - fontes consultadas (por exemplo, discussão da comunidade, wiki de referência e material oficial).
 
 A comunidade será usada como fonte de ideias e contexto, não como autoridade exclusiva sobre fatos do jogo. Referências controversas ou memes de curta duração devem ser revisados antes de entrar no catálogo.
+
+
+## Primeira rodada
+
+A primeira rodada está registrada em `docs/RESEARCH_REFERENCES.md`. Ela contém uma conquista por título, usa as três línguas obrigatórias e não compartilha IDs nem progresso entre versões.
