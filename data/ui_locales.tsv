@@ -113,3 +113,15 @@ es	battle_safari_bait	CEBO
 es	battle_safari_rock	ROCA
 es	battle_safari_balls	BOLAS
 es	battle_no_mimic_moves	NINGÚN MOVIMIENTO PARA COPIAR
+en	battle_active	ACTIVE
+en	battle_target_active	ACTIVE
+en	battle_target_ally	ALLY
+en	battle_target_foe	FOE
+pt-BR	battle_active	ATIVO
+pt-BR	battle_target_active	ATIVO
+pt-BR	battle_target_ally	ALIADO
+pt-BR	battle_target_foe	INIMIGO
+es	battle_active	ACTIVO
+es	battle_target_active	ACTIVO
+es	battle_target_ally	ALIADO
+es	battle_target_foe	RIVAL
