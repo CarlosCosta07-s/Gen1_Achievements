@@ -1338,15 +1338,21 @@ return function(mod)
         if scale <= 0 then scale = 1 end
         local width = (tonumber(viewport.gameWidth) or 160 * scale) / scale
         local height = (tonumber(viewport.gameHeight) or 144 * scale) / scale
+        local actorName
+        if snapshot.double == true and type(snapshot.player) == "table" then
+            actorName = snapshot.player.name or snapshot.player.species
+        end
+        local showDoubleActor = type(actorName) == "string" and actorName ~= ""
         local panel_height = (snapshot.prompt == "moves" or snapshot.prompt == "target"
             or snapshot.prompt == "mimic") and 62 or 52
+        if showDoubleActor then panel_height = panel_height + 3 end
         panel_height = math.min(panel_height, height - 18)
         local panel = {
             x = 5, y = height - panel_height - 4,
             w = width - 10, h = panel_height,
         }
         local gap = width >= 200 and 5 or 3
-        local header = 10
+        local header = showDoubleActor and 13 or 10
         local content_y = panel.y + header + 3
         local content_h = panel.h - header - 7
         local buttons = {}
@@ -1403,6 +1409,8 @@ return function(mod)
             originX = tonumber(viewport.gameX) or 0,
             originY = tonumber(viewport.gameY) or 0,
             theme = theme,
+            showDoubleActor = showDoubleActor,
+            actorName = actorName,
         }
     end
 
@@ -1456,6 +1464,19 @@ return function(mod)
                 glyph_count(typeLabel, mod.ui.Font) * 6))
             draw_battle_text(graphics, typeLabel, chipX + 1, metaY,
                 chipWidth - 2, "center", { 1, 1, 1, 1 }, 8, typeScale)
+        elseif metadata and metadata.tag then
+            local tagLabel = tostring(metadata.tag):upper()
+            chipWidth = math.min(42, math.max(20,
+                glyph_count(tagLabel, mod.ui.Font) * 5 + 6))
+            local chipX = rect.x + 4
+            local chipHeight = 7
+            graphics.setColor(theme.shade[1], theme.shade[2], theme.shade[3], 1)
+            graphics.rectangle("fill", chipX, metaY, chipWidth, chipHeight,
+                theme.radius, theme.radius)
+            local tagScale = math.min(1, (chipWidth - 4) / math.max(1,
+                glyph_count(tagLabel, mod.ui.Font) * 6))
+            draw_battle_text(graphics, tagLabel, chipX + 1, metaY,
+                chipWidth - 2, "center", { 1, 1, 1, 1 }, 9, tagScale)
         end
 
         -- The public UnifiedBattle facade normalizes absent PP to zero.
@@ -1518,6 +1539,13 @@ return function(mod)
             draw_battle_text(graphics, help, panel.x + panel.w * 0.40,
                 panel.y + 2, panel.w * 0.56, "right",
                 { 0.82, 0.85, 0.90, 1 }, 14)
+            if layout.showDoubleActor then
+                local actorLabel = (dictionary.battle_active or "ACTIVE")
+                    .. ": " .. tostring(layout.actorName)
+                draw_battle_text(graphics, actorLabel, panel.x + 7,
+                    panel.y + 10, panel.w - 14, "left",
+                    { 0.72, 0.77, 0.84, 1 }, 25)
+            end
 
             for index, rect in ipairs(layout.buttons) do
                 local selected = index == battle_ui.cursor
@@ -1556,8 +1584,17 @@ return function(mod)
                     local name = target and (target.name or target.species) or ("TARGET " .. tostring(targetId))
                     local hp = target and target.hp and target.maxHp
                         and ("  %d/%d HP"):format(target.hp, target.maxHp) or ""
+                    local roleKey
+                    if target and target.side == "player" then
+                        roleKey = tonumber(targetId) == tonumber(snapshot.active)
+                            and "battle_target_active" or "battle_target_ally"
+                    elseif target and target.side == "enemy" then
+                        roleKey = "battle_target_foe"
+                    end
+                    local role = roleKey and dictionary[roleKey] or nil
                     draw_battle_card(graphics, rect, tostring(name) .. hp,
-                        theme, selected, target and target.absent == true)
+                        theme, selected, target and target.absent == true,
+                        role and { tag = role } or nil)
                 end
             end
 
