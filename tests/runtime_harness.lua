@@ -59,12 +59,27 @@ local function make_environment(game_id, initial_cache)
     local emitted = {}
     local cache = initial_cache or {}
     local screens = {}
+    local hook_wrappers = {}
+    local pressed = {}
+    local drawn = {}
+    local pushes = {}
     local write_count = 0
     local fail_writes = false
+    local pop_count = 0
     local game = {
         save = { version = game_id },
-        input = { wasPressed = function() return false end },
-        stack = { pop = function() end },
+        input = {
+            wasPressed = function(_, button)
+                local value = pressed[button] == true
+                pressed[button] = nil
+                return value
+            end,
+        },
+        stack = {
+            pop = function()
+                pop_count = pop_count + 1
+            end,
+        },
     }
 
     local mod = {}
@@ -101,12 +116,51 @@ local function make_environment(game_id, initial_cache)
             end,
         },
     }
+    mod.ui = {
+        Font = {
+            draw = function(value, x, y)
+                drawn[#drawn + 1] = {
+                    text = tostring(value),
+                    x = x,
+                    y = y,
+                }
+            end,
+        },
+        insertAfter = function(items, anchor, new_item)
+            local output = {}
+            local inserted = false
+            for _, item in ipairs(items) do
+                output[#output + 1] = item
+                local label = type(item) == "table" and item.label or item
+                if label == anchor then
+                    output[#output + 1] = new_item
+                    inserted = true
+                end
+            end
+            if not inserted then output[#output + 1] = new_item end
+            return output
+        end,
+        push = function(target_game, screen_id)
+            pushes[#pushes + 1] = { game = target_game, id = screen_id }
+        end,
+    }
+    mod.hooks = {
+        wrap = function(_, name, callback)
+            hook_wrappers[name] = callback
+        end,
+    }
     mod.log = {}
     for _, level in ipairs({ "info", "warn", "error" }) do
         mod.log[level] = function() end
     end
-    function mod:supports(surface, _name)
-        return surface == "events"
+    function mod:supports(surface, name)
+        if surface == "events" then return true end
+        if surface == "hooks" then
+            return name == "ui.start_menu.items"
+                or name == "render.hud"
+                or name == "core.update"
+        end
+        return false
     end
     function mod:read(path)
         return read_file(path)
@@ -121,6 +175,9 @@ local function make_environment(game_id, initial_cache)
         emitted = emitted,
         listeners = listeners,
         screens = screens,
+        hook_wrappers = hook_wrappers,
+        drawn = drawn,
+        pushes = pushes,
     }
     function env:dispatch(name, payload)
         payload = payload or {}
@@ -133,6 +190,23 @@ local function make_environment(game_id, initial_cache)
     end
     function env:write_count()
         return write_count
+    end
+    function env:press(button)
+        pressed[button] = true
+    end
+    function env:clear_drawn()
+        for index = #drawn, 1, -1 do drawn[index] = nil end
+    end
+    function env:draw_screen(screen)
+        screen:draw()
+    end
+    function env:run_hook(name, next_result, ...)
+        local callback = hook_wrappers[name]
+        check(type(callback) == "function", "missing hook wrapper " .. name)
+        return callback(function() return next_result end, ...)
+    end
+    function env:pop_count()
+        return pop_count
     end
     return env
 end
@@ -461,4 +535,105 @@ end
 check(count_unlocks(created_env, "red_evolve_5") == 1,
     "save.created did not open the new-game session")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; session gate, matching, deduplication, per-title isolation, legacy migration, malformed-profile rejection, valid-profile preservation, save.created and write failures verified."):format(#rows))
+-- Exercise the actual mod-owned menu hook and screen implementation.
+-- This covers the UI surface that the previous event-only harness did not run.
+local ui_env = make_environment("red")
+local screen_id = "Gen1AchievementConsole"
+check(ui_env.screens[screen_id] ~= nil,
+    "the mod did not register its achievement screen")
+
+local base_menu = {
+    { label = "POKEDEX" },
+    { label = "SAVE" },
+    { label = "OPTION" },
+    { label = "QUIT" },
+}
+local menu = ui_env:run_hook(
+    "ui.start_menu.items", base_menu, ui_env.game, base_menu
+)
+check(type(menu) == "table" and #menu == #base_menu + 1,
+    "START menu hook did not preserve the vanilla rows and add one row")
+check(menu[1].label == "POKEDEX" and menu[2].label == "SAVE",
+    "START menu hook changed the rows before SAVE")
+check(menu[3].label == "CONQUISTAS" and type(menu[3].onSelect) == "function",
+    "achievement entry was not inserted immediately after SAVE")
+check(menu[4].label == "OPTION" and menu[5].label == "QUIT",
+    "achievement entry was not placed before the options row")
+menu[3].onSelect()
+check(#ui_env.pushes == 1 and ui_env.pushes[1].game == ui_env.game
+    and ui_env.pushes[1].id == screen_id,
+    "START menu selection did not push the mod-owned achievement screen")
+
+local screen = ui_env.screens[screen_id].new(ui_env.game)
+local function draw_contains(fragment)
+    ui_env:clear_drawn()
+    ui_env:draw_screen(screen)
+    for _, item in ipairs(ui_env.drawn) do
+        if item.text:find(fragment, 1, true) then return true end
+    end
+    return false
+end
+
+check(draw_contains("CONQUISTAS") and draw_contains("PROGRESSO")
+    and draw_contains("< TODAS >"),
+    "achievement screen did not draw its title, progress and default filter")
+
+ui_env:press("right")
+screen:update(0)
+check(draw_contains("< DESBLOQUEADAS >")
+    and draw_contains("AINDA SEM CONQUISTAS"),
+    "Unlocked filter did not show its empty state for a fresh profile")
+
+ui_env:press("right")
+screen:update(0)
+check(draw_contains("< BLOQUEADAS >")
+    and not draw_contains("AINDA SEM CONQUISTAS"),
+    "Locked filter did not show the locked catalog")
+
+ui_env:press("left")
+screen:update(0)
+check(draw_contains("< DESBLOQUEADAS >")
+    and draw_contains("AINDA SEM CONQUISTAS"),
+    "left navigation did not return from Locked to Unlocked")
+ui_env:press("left")
+screen:update(0)
+check(draw_contains("< TODAS >"),
+    "left navigation did not return from Unlocked to All")
+
+-- Move beyond the first five rows and verify that the viewport still renders
+-- exactly five list entries instead of clipping the cursor off-screen.
+for _ = 1, 6 do
+    ui_env:press("down")
+    screen:update(0)
+end
+ui_env:clear_drawn()
+ui_env:draw_screen(screen)
+local visible_rows = 0
+for _, item in ipairs(ui_env.drawn) do
+    if item.x == 16 and item.y >= 58 and item.y <= 106 then
+        visible_rows = visible_rows + 1
+    end
+end
+check(visible_rows == 5,
+    "D-pad scrolling did not keep exactly five achievement rows visible")
+
+ui_env:press("a")
+screen:update(0)
+check(draw_contains("BLOQUEADA") and draw_contains("B: VOLTAR"),
+    "A did not open the selected achievement details")
+ui_env:press("b")
+screen:update(0)
+check(draw_contains("< TODAS >") and draw_contains("A: DETALHES"),
+    "B did not return from details to the achievement list")
+ui_env:press("start")
+screen:update(0)
+check(ui_env:pop_count() == 1,
+    "START did not close the achievement screen")
+
+local second_screen = ui_env.screens[screen_id].new(ui_env.game)
+ui_env:press("b")
+second_screen:update(0)
+check(ui_env:pop_count() == 2,
+    "B did not close the achievement screen from its main list")
+
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; session, persistence, profile integrity, START menu registration, filter navigation, list scrolling, details and screen exit verified."):format(#rows))
