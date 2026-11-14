@@ -1,3 +1,10 @@
+## 0.5.12 — HP visual dos alvos em batalha
+
+- Adicionadas barras compactas de HP aos cartões de alvo quando a API pública fornece HP atual e máximo válidos.
+- Reservado espaço adicional somente quando existe ao menos um alvo com HP observável; os cartões preservam nome e marcador de papel sem comprimir o texto.
+- Mantidos o cursor, os IDs nativos e a validação de seleção inalterados; HP dos alvos é apenas informação visual.
+- Ampliado o runtime harness para testar alvos esparsos, proporções diferentes, HP zero, dados ausentes/inválidos e preservação do envio do ID nativo.
+
 ## 0.5.11 — Indicador de HP do combatente ativo
 
 - Exibidos HP atual, HP máximo e uma barra compacta para o Pokémon que está comandando em batalhas duplas, usando somente os dados da API pública.

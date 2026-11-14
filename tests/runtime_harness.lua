@@ -1206,6 +1206,17 @@ local target_snapshot = {
 }
 local target_env = make_environment("emerald")
 target_env:set_battle_snapshot(target_snapshot)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+target_env:run_hook("render.hud", nil, target_env.game, base_viewport)
+local sparse_target_tracks = 0
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "rectangle" and call.mode == "line"
+        and call.h == 3 and call.w > 50 and call.w < 60 then
+        sparse_target_tracks = sparse_target_tracks + 1
+    end
+end
+check(sparse_target_tracks == 2,
+    "sparse target cards did not render one HP meter for each available battler")
 target_env:run_hook(
     "input.key", nil, target_env.game, { phase = "pressed", key = "z" }
 )
@@ -1224,9 +1235,9 @@ double_target_env:set_battle_snapshot({
     player = { name = "RAICHU", hp = 45, maxHp = 60 },
     battlers = {
         { id = 0, side = "player", name = "PIKACHU", hp = 40, maxHp = 40, active = true },
-        { id = 1, side = "enemy", name = "GASTLY", hp = 25, maxHp = 25, active = true },
-        { id = 2, side = "player", name = "RAICHU", hp = 60, maxHp = 60, active = true },
-        { id = 3, side = "enemy", name = "ONIX", hp = 55, maxHp = 55, active = true },
+        { id = 1, side = "enemy", name = "GASTLY", hp = 25, maxHp = 50, active = true },
+        { id = 2, side = "player", name = "RAICHU", hp = 15, maxHp = 60, active = true },
+        { id = 3, side = "enemy", name = "ONIX", hp = 0, maxHp = 55, active = true },
     },
     enemy = {}, party = {}, moves = {}, items = {},
 })
@@ -1253,6 +1264,42 @@ for _, call in ipairs(battle_draw_calls) do
 end
 check(double_health_fill,
     "double-battle actor HP meter did not render the snapshot health ratio")
+local target_health_tracks, target_health_fills = 0, 0
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "rectangle" and call.mode == "line"
+        and call.h == 3 and call.w > 50 and call.w < 60 then
+        target_health_tracks = target_health_tracks + 1
+    elseif call.kind == "rectangle" and call.mode == "fill"
+        and call.h == 1 and call.w > 0 and call.w < 56 then
+        target_health_fills = target_health_fills + 1
+    end
+end
+check(target_health_tracks == 4 and target_health_fills == 3,
+    "double-battle target HP meters did not show all battlers and their distinct health ratios")
+
+local invalid_target_hp_env = make_environment("emerald")
+invalid_target_hp_env:set_battle_snapshot({
+    prompt = "target", kind = "trainer", revision = 33,
+    targets = { 0, 1 },
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU", hp = 10, maxHp = 0 },
+        { id = 1, side = "enemy", name = "GASTLY" },
+    },
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+invalid_target_hp_env:run_hook(
+    "render.hud", nil, invalid_target_hp_env.game, base_viewport
+)
+local invalid_target_tracks = 0
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "rectangle" and call.mode == "line"
+        and call.h == 3 and call.w > 50 and call.w < 60 then
+        invalid_target_tracks = invalid_target_tracks + 1
+    end
+end
+check(invalid_target_tracks == 0,
+    "invalid or missing target HP values produced an estimated health meter")
 
 local no_actor_hp_env = make_environment("emerald")
 no_actor_hp_env:set_battle_snapshot({

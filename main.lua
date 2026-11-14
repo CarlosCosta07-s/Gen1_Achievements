@@ -1466,6 +1466,34 @@ return function(mod)
         return BATTLE_THEMES[id] or BATTLE_THEMES.red
     end
 
+    local function battle_hp_values(mon)
+        if type(mon) ~= "table" then return nil end
+        local currentHp = tonumber(mon.hp)
+        local maximumHp = tonumber(mon.maxHp)
+        if currentHp == nil or maximumHp == nil
+            or currentHp ~= currentHp or maximumHp ~= maximumHp
+            or currentHp == math.huge or currentHp == -math.huge
+            or maximumHp == math.huge or maximumHp == -math.huge
+            or maximumHp < 1 then
+            return nil
+        end
+        local maxValue = math.floor(maximumHp)
+        if maxValue < 1 then return nil end
+        return math.max(0, math.min(maxValue, math.floor(currentHp))), maxValue
+    end
+
+    local function battle_hp_ratio(mon)
+        local currentHp, maximumHp = battle_hp_values(mon)
+        if currentHp == nil or maximumHp == nil then return nil end
+        return currentHp / maximumHp
+    end
+
+    local function battle_hp_color(ratio)
+        if ratio >= 0.5 then return { 0.24, 0.72, 0.38, 1 } end
+        if ratio >= 0.2 then return { 0.90, 0.70, 0.24, 1 } end
+        return { 0.84, 0.27, 0.25, 1 }
+    end
+
     local function battle_layout(snapshot, viewport, theme, entries)
         local scale = tonumber(viewport.scale) or 1
         if scale <= 0 then scale = 1 end
@@ -1475,29 +1503,30 @@ return function(mod)
         local actorHp, actorMaxHp
         if snapshot.double == true and type(snapshot.player) == "table" then
             actorName = snapshot.player.name or snapshot.player.species
-            local currentHp = tonumber(snapshot.player.hp)
-            local maximumHp = tonumber(snapshot.player.maxHp)
-            if currentHp ~= nil and maximumHp ~= nil
-                and currentHp == currentHp and maximumHp == maximumHp
-                and currentHp ~= math.huge and currentHp ~= -math.huge
-                and maximumHp ~= math.huge and maximumHp ~= -math.huge
-                and maximumHp >= 1 then
-                actorMaxHp = math.floor(maximumHp)
-                if actorMaxHp > 0 then
-                    actorHp = math.max(0, math.min(actorMaxHp, math.floor(currentHp)))
-                else
-                    actorMaxHp = nil
-                end
-            end
+            actorHp, actorMaxHp = battle_hp_values(snapshot.player)
         end
         local showDoubleActor = type(actorName) == "string" and actorName ~= ""
         local showActorHp = showDoubleActor and actorHp ~= nil and actorMaxHp ~= nil
+        local showTargetHp = false
+        if snapshot.prompt == "target" then
+            for _, battler in ipairs(snapshot.battlers or {}) do
+                if target_index(snapshot.targets, battler.id) ~= nil
+                    and battle_hp_ratio(battler) ~= nil then
+                    showTargetHp = true
+                    break
+                end
+            end
+        end
         local panel_height = (snapshot.prompt == "moves" or snapshot.prompt == "target"
             or snapshot.prompt == "mimic") and 62 or 52
         if showDoubleActor then
             -- The second actor row is reserved only when public HP values exist.
             -- A missing/invalid HP field leaves the previous compact header intact.
             panel_height = panel_height + (showActorHp and 12 or 3)
+        end
+        if showTargetHp then
+            -- Leave room for a thin health meter between each target name and role chip.
+            panel_height = panel_height + 8
         end
         panel_height = math.min(panel_height, height - 18)
         local panel = {
@@ -1567,6 +1596,7 @@ return function(mod)
             showDoubleActor = showDoubleActor,
             actorName = actorName,
             showActorHp = showActorHp,
+            showTargetHp = showTargetHp,
             actorHp = actorHp,
             actorMaxHp = actorMaxHp,
         }
@@ -1606,6 +1636,27 @@ return function(mod)
             glyph_count(tostring(label or ""), mod.ui.Font) * 6))
         draw_battle_text(graphics, label, rect.x + 4, rect.y + 2,
             text_width, "left", foreground, 13, label_scale)
+
+        if metadata and type(metadata.hpRatio) == "number" then
+            local ratio = math.max(0, math.min(1, metadata.hpRatio))
+            local meterX, meterY = rect.x + 6, rect.y + 10
+            local meterW, meterH = math.max(8, rect.w - 12), 3
+            graphics.setColor(0.16, 0.18, 0.22, 1)
+            graphics.rectangle("fill", meterX, meterY, meterW, meterH,
+                theme.radius, theme.radius)
+            local fillW = (meterW - 2) * ratio
+            if fillW > 0 then
+                local meterColor = battle_hp_color(ratio)
+                graphics.setColor(meterColor[1], meterColor[2],
+                    meterColor[3], meterColor[4])
+                graphics.rectangle("fill", meterX + 1, meterY + 1,
+                    fillW, 1, theme.radius, theme.radius)
+            end
+            graphics.setColor(theme.shade[1], theme.shade[2],
+                theme.shade[3], 1)
+            graphics.rectangle("line", meterX, meterY, meterW, meterH,
+                theme.radius, theme.radius)
+        end
 
         local metaY = rect.y + rect.h - 10
         local chipWidth = 0
@@ -1735,11 +1786,7 @@ return function(mod)
                     local meterX, meterY = panel.x + 7, panel.y + 18
                     local meterW, meterH = panel.w - 14, 3
                     local ratio = layout.actorHp / layout.actorMaxHp
-                    local meterColor = ratio >= 0.5
-                        and { 0.24, 0.72, 0.38, 1 }
-                        or ratio >= 0.2
-                            and { 0.90, 0.70, 0.24, 1 }
-                            or { 0.84, 0.27, 0.25, 1 }
+                    local meterColor = battle_hp_color(ratio)
                     graphics.setColor(0.16, 0.18, 0.22, 1)
                     graphics.rectangle("fill", meterX, meterY, meterW, meterH,
                         theme.radius, theme.radius)
@@ -1796,8 +1843,6 @@ return function(mod)
                         if candidate.id == targetId then target = candidate break end
                     end
                     local name = target and (target.name or target.species) or ("TARGET " .. tostring(targetId))
-                    local hp = target and target.hp and target.maxHp
-                        and ("  %d/%d HP"):format(target.hp, target.maxHp) or ""
                     local roleKey
                     if target and target.side == "player" then
                         roleKey = tonumber(targetId) == tonumber(snapshot.active)
@@ -1806,9 +1851,13 @@ return function(mod)
                         roleKey = "battle_target_foe"
                     end
                     local role = roleKey and dictionary[roleKey] or nil
-                    draw_battle_card(graphics, rect, tostring(name) .. hp,
-                        theme, selected, target and target.absent == true,
-                        role and { tag = role } or nil)
+                    local hpRatio = target and battle_hp_ratio(target) or nil
+                    local metadata
+                    if role ~= nil or hpRatio ~= nil then
+                        metadata = { tag = role, hpRatio = hpRatio }
+                    end
+                    draw_battle_card(graphics, rect, tostring(name),
+                        theme, selected, target and target.absent == true, metadata)
                 end
             end
 
