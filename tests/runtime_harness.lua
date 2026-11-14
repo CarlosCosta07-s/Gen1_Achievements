@@ -1012,7 +1012,9 @@ for _, game_id in ipairs(battle_titles) do
         if call.kind == "text" then joined[#joined + 1] = call.value end
     end
     local drawn_text = table.concat(joined, "\n")
-    check(drawn_text:find("LUTAR", 1, true) ~= nil
+    check(drawn_text:find("AÇÃO", 1, true) ~= nil
+        and drawn_text:find("A: SELECIONAR", 1, true) ~= nil
+        and drawn_text:find("LUTAR", 1, true) ~= nil
         and drawn_text:find("BOLSA", 1, true) ~= nil
         and drawn_text:find("POKEMON", 1, true) ~= nil
         and drawn_text:find("FUGIR", 1, true) ~= nil,
