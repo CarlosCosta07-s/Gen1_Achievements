@@ -1261,13 +1261,13 @@ return function(mod)
                 or snapshot.prompt == "moves" and dictionary.battle_moves
                 or dictionary.battle_target
             draw_battle_text(graphics, title or "ACTION", panel.x + 7,
-                panel.y + 2, panel.w * 0.48, "left", { 1, 1, 1, 1 }, 12)
+                panel.y + 2, panel.w * 0.36, "left", { 1, 1, 1, 1 }, 12)
             local help = snapshot.prompt == "menu"
                 and (dictionary.battle_select or "A: SELECT")
                 or (dictionary.battle_back or "B: BACK")
-            draw_battle_text(graphics, help, panel.x + panel.w * 0.52,
-                panel.y + 2, panel.w * 0.44, "right",
-                { 0.82, 0.85, 0.90, 1 }, 12)
+            draw_battle_text(graphics, help, panel.x + panel.w * 0.40,
+                panel.y + 2, panel.w * 0.56, "right",
+                { 0.82, 0.85, 0.90, 1 }, 14)
 
             for index, rect in ipairs(layout.buttons) do
                 local selected = index == battle_ui.cursor
