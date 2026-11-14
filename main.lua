@@ -1197,9 +1197,15 @@ return function(mod)
         return false
     end
 
-    local function submit_battle_intent(game, kind, values)
+    local function submit_battle_intent(game, kind, values, expectedSnapshot)
         local snapshot = read_battle_snapshot()
         if type(snapshot) ~= "table" then return false end
+        if type(expectedSnapshot) ~= "table"
+            or snapshot.prompt ~= expectedSnapshot.prompt
+            or snapshot.revision ~= expectedSnapshot.revision then
+            sync_battle_ui(game, snapshot)
+            return false
+        end
         if not is_owned_battle_prompt(snapshot) then
             sync_battle_ui(game, snapshot)
             return false
@@ -1240,35 +1246,35 @@ return function(mod)
             local actions = battle_actions_for(game)
             local action = actions[battle_ui.cursor]
             if action then
-                return submit_battle_intent(game, "menu", { choice = action.key })
+                return submit_battle_intent(game, "menu", { choice = action.key }, snapshot)
             end
         elseif snapshot.prompt == "moves" then
             local move = snapshot.moves and snapshot.moves[battle_ui.cursor]
             local movePp = move and (tonumber(move.pp) or 0) or 0
             if move and move.slot then
                 if move.disabled or movePp <= 0 then return false end
-                return submit_battle_intent(game, "move", { slot = move.slot })
+                return submit_battle_intent(game, "move", { slot = move.slot }, snapshot)
             elseif move then
                 if move.disabled or movePp <= 0 then return false end
-                return submit_battle_intent(game, "move", { slot = battle_ui.cursor })
+                return submit_battle_intent(game, "move", { slot = battle_ui.cursor }, snapshot)
             end
         elseif snapshot.prompt == "mimic" then
             local move = snapshot.mimicMoves and snapshot.mimicMoves[battle_ui.cursor]
             if move then
                 return submit_battle_intent(game, "mimic", {
                     index = tonumber(move.index) or battle_ui.cursor,
-                })
+                }, snapshot)
             end
         elseif snapshot.prompt == "safari" then
             if (tonumber(snapshot.safariBalls) or 0) <= 0 then return false end
             local action = BATTLE_SAFARI_ACTIONS[battle_ui.cursor]
             if action then
-                return submit_battle_intent(game, "safari", { action = action.key })
+                return submit_battle_intent(game, "safari", { action = action.key }, snapshot)
             end
         elseif snapshot.prompt == "target" then
             local target = snapshot.targets and snapshot.targets[battle_ui.cursor]
             if target ~= nil then
-                return submit_battle_intent(game, "target", { target = target })
+                return submit_battle_intent(game, "target", { target = target }, snapshot)
             end
         end
         return false
@@ -1288,7 +1294,7 @@ return function(mod)
             return activate_battle_cursor(game, snapshot)
         elseif action == "b" then
             if snapshot.prompt == "moves" or snapshot.prompt == "target" then
-                return submit_battle_intent(game, "back", {})
+                return submit_battle_intent(game, "back", {}, snapshot)
             end
             return true
         elseif action == "left" or action == "right"
@@ -1830,7 +1836,7 @@ return function(mod)
             local back = layout.backButton
             if back and x >= back.x and x <= back.x + back.w
                 and y >= back.y and y <= back.y + back.h then
-                submit_battle_intent(game, "back", {})
+                submit_battle_intent(game, "back", {}, snapshot)
                 return true
             end
             for index, rect in ipairs(layout.buttons) do
