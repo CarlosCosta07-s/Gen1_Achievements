@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2 — Captura de toques curtos
+
+- Registradas as bordas do overlay virtual diretamente em Input.overlayPressed, incluindo toques liberados antes do próximo passo de lógica.
+- Mantido o bloqueio nativo apenas até o passo que consome o toque, sem interferir em teclado, gamepad ou outras fontes.
+- Adicionados testes para press/release no mesmo intervalo e para a restauração exata dos métodos nativos.
+
 ## 0.5.1 — Ponte de controles virtuais para o menu de batalha
 
 - Encaminhadas as bordas do D-pad e dos botões A/B do overlay Android/iOS pelo mesmo seletor de batalha.
