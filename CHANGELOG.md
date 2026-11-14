@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3 — Testes da interface e limite do launcher
+
+- Ampliado o ambiente de teste para simular os hooks e a navegação real da tela registrada pelo mod.
+- Adicionados testes para inserção da opção imediatamente após SAVE e antes de OPTION, preservação das demais entradas do menu e abertura da tela.
+- Adicionados testes para filtros, estado vazio, rolagem, detalhes e saída com B/START.
+- Documentado que a Portable Mod API 3 pública não fornece atualmente um ponto de registro de páginas para o painel global Extras do launcher; a tela do menu START continua sendo a integração funcional do mod.
+- Mantidas todas as alterações no repositório Gen1 Achievements, sem editar o repositório Gen1Recomp.
+
 ## 0.4.2 — Validação reforçada dos perfis
 
 - Ampliado o harness para rejeitar perfis com desbloqueios duplicados, IDs inexistentes, registros malformados, versões desconhecidas, contadores inválidos ou incompatíveis com conquistas instantâneas.
