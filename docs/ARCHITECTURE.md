@@ -60,6 +60,23 @@ Armazenamento:
 
 Esse comportamento é mais próximo de conquistas vinculadas ao título em consoles modernos do que de objetivos presos a um save. O limite atual é que `mod.cache` é local à instalação. Não é uma conta online e não sincroniza dados entre dispositivos ou usuários do mesmo aplicativo.
 
+## Testes automatizados
+
+O repositório possui duas camadas complementares de verificação:
+
+1. `tests/validate_catalog.py` valida as 15 colunas do TSV, unicidade de IDs, idiomas, operadores, limites dos contadores e eventos autorizados para cada geração.
+2. `tests/runtime_harness.lua` carrega o `main.lua` real e fornece uma implementação controlada das superfícies Portable Mod API 3 necessárias. O harness percorre cada linha dos onze catálogos e verifica correspondência de eventos, bloqueio antes de `save.loaded`, desbloqueio único, persistência no arquivo correto, separação entre títulos, migração do formato 1, rejeição de IDs estrangeiros e rollback quando a gravação falha.
+
+Para executar:
+
+```bash
+python3 tests/validate_catalog.py
+luajit -b main.lua /tmp/gen1-achievements.luac
+luajit tests/runtime_harness.lua
+```
+
+O harness exercita as 205 definições atuais com payloads sintéticos. Isso comprova a lógica de interpretação e persistência do mod sob o contrato simulado; não comprova que cada call site do motor emita exatamente o payload esperado em uma partida real. A confirmação final exige testar as versões executáveis dos onze jogos.
+
 ## Idioma
 
 `mod.options` persiste `achievement_language` fora do save do jogo e oferece English, Português (Brasil) e Español. A tela carrega os textos de `data/ui_locales.tsv`, espelhados em JSON para ferramentas. O mesmo valor é usado para nomes e descrições; IDs, condições e progresso independem do idioma.
