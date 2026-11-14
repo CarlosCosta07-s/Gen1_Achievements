@@ -1524,6 +1524,8 @@ return function(mod)
             originX = tonumber(viewport.gameX) or 0,
             originY = tonumber(viewport.gameY) or 0,
             theme = theme,
+            prompt = snapshot.prompt,
+            revision = snapshot.revision,
             showDoubleActor = showDoubleActor,
             actorName = actorName,
         }
@@ -1831,6 +1833,17 @@ return function(mod)
             local inside = x >= panel.x and x <= panel.x + panel.w
                 and y >= panel.y and y <= panel.y + panel.h
             if not inside then return next(game, event) end
+
+            -- A pointer press can arrive between the last render and the next
+            -- battle update. Never apply geometry from an older prompt or
+            -- revision to the newly active command state.
+            if layout.prompt ~= snapshot.prompt
+                or layout.revision ~= snapshot.revision then
+                battle_ui.pointer_captures[pointerKey] = true
+                sync_battle_ui(game, snapshot)
+                battle_ui.layout = nil
+                return true
+            end
 
             battle_ui.pointer_captures[pointerKey] = true
             local back = layout.backButton
