@@ -1,3 +1,10 @@
+## 0.5.9 — Toque sincronizado com o estado da batalha
+
+- Vinculado cada layout de toque ao prompt e à revisão exatos do snapshot usados para desenhá-lo.
+- Descartado e consumido o toque dentro de um painel antigo quando a batalha muda de fase ou revisão antes do próximo frame, evitando que um cartão de alvo seja reinterpretado como golpe (ou vice-versa).
+- Mantida a passagem de toques fora do painel para o jogo e preservada a captura do ponteiro até o evento de liberação/cancelamento.
+- Ampliado o runtime harness para cobrir mudança de fase, mudança de revisão no mesmo prompt e aceitação de um novo toque após redesenhar o painel.
+
 ## 0.5.8 — Sincronização dinâmica dos alvos e fases
 
 - Identificado no painel o Pokémon ativo que está escolhendo o comando, acompanhando a troca de slot entre as ações da batalha dupla.
