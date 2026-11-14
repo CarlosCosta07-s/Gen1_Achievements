@@ -1268,6 +1268,17 @@ for _, call in ipairs(battle_draw_calls) do
 end
 check(double_health_fill,
     "double-battle actor HP meter did not render the snapshot health ratio")
+local initial_cursor_y, initial_cursor_marks
+initial_cursor_marks = 0
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "rectangle" and call.mode == "fill"
+        and call.w == 2 and call.h > 4 then
+        initial_cursor_marks = initial_cursor_marks + 1
+        initial_cursor_y = call.y
+    end
+end
+check(initial_cursor_marks == 1 and initial_cursor_y ~= nil,
+    "target grid did not visibly mark exactly one current cursor")
 local target_health_tracks, target_health_fills = 0, 0
 for _, call in ipairs(battle_draw_calls) do
     if call.kind == "rectangle" and call.mode == "line"
@@ -1348,6 +1359,19 @@ check(table.concat(no_actor_hp_text, "\n"):find("HP ", 1, true) == nil
 double_target_env:run_hook(
     "input.key", nil, double_target_env.game, { phase = "pressed", key = "down" }
 )
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+double_target_env:run_hook("render.hud", nil, double_target_env.game, base_viewport)
+local moved_cursor_y, moved_cursor_marks
+moved_cursor_marks = 0
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "rectangle" and call.mode == "fill"
+        and call.w == 2 and call.h > 4 then
+        moved_cursor_marks = moved_cursor_marks + 1
+        moved_cursor_y = call.y
+    end
+end
+check(moved_cursor_marks == 1 and moved_cursor_y ~= initial_cursor_y,
+    "target cursor marker did not follow the selected native battler")
 double_target_env:run_hook(
     "input.key", nil, double_target_env.game, { phase = "pressed", key = "z" }
 )

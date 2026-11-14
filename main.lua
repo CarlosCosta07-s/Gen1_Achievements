@@ -1645,8 +1645,17 @@ return function(mod)
 
         graphics.setColor(background[1], background[2], background[3], background[4])
         graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
-        graphics.setColor(theme.shade[1], theme.shade[2], theme.shade[3], 1)
+        graphics.setColor(selected and { 1, 1, 1, 1 } or theme.shade[1],
+            selected and 1 or theme.shade[2],
+            selected and 1 or theme.shade[3], 1)
         graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
+        if metadata and metadata.targetCursor == true then
+            -- A narrow inner rail marks only the target currently under the
+            -- cursor; it does not claim that other battlers are illegal targets.
+            graphics.setColor(1, 1, 1, 1)
+            graphics.rectangle("fill", rect.x + 2, rect.y + 2,
+                2, math.max(1, rect.h - 4), theme.radius, theme.radius)
+        end
 
         local statusChip
         if metadata and type(metadata.status) == "string" then
@@ -1886,8 +1895,13 @@ return function(mod)
                     local hpRatio = target and battle_hp_ratio(target) or nil
                     local status = target and target.status or nil
                     local metadata
-                    if role ~= nil or hpRatio ~= nil or status ~= nil then
-                        metadata = { tag = role, hpRatio = hpRatio, status = status }
+                    if role ~= nil or hpRatio ~= nil or status ~= nil or selected then
+                        metadata = {
+                            tag = role,
+                            hpRatio = hpRatio,
+                            status = status,
+                            targetCursor = selected,
+                        }
                     end
                     draw_battle_card(graphics, rect, tostring(name),
                         theme, selected, target and target.absent == true, metadata)

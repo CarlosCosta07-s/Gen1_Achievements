@@ -1,0 +1,119 @@
+name: Publish public mod release
+
+on:
+  workflow_run:
+    workflows: ["Validate achievement catalog"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Ensure the validated commit is still main
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote origin refs/heads/main | awk 'NR == 1 { print $1 }')"
+          if [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
+            echo "Validated commit is no longer the main branch head; skipping release."
+            exit 1
+          fi
+
+      - name: Build installable package and release notes
+        id: package
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("manifest.json", encoding="utf-8"))["version"])')"
+          TAG="v$VERSION"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to overwrite it."
+            exit 1
+          fi
+
+          python3 - "$VERSION" "$RUNNER_TEMP/release-notes.md" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          version, destination = sys.argv[1], pathlib.Path(sys.argv[2])
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          match = re.search(
+              rf"(?ms)^##\\s+{re.escape(version)}\\b.*?\\n(.*?)(?=^##\\s+|\\Z)",
+              changelog,
+          )
+          if not match:
+              raise SystemExit(f"CHANGELOG.md has no section for {version}")
+          notes = match.group(1).strip()
+          if not notes:
+              raise SystemExit(f"CHANGELOG.md section for {version} is empty")
+          destination.write_text(notes + "\\n", encoding="utf-8")
+          PY
+
+          PACKAGE="Gen1_Achievements-$VERSION"
+          ZIP_NAME="gen1-achievements-$VERSION.zip"
+          CHECKSUM_NAME="$ZIP_NAME.sha256"
+          python3 - "$VERSION" "$RUNNER_TEMP/$ZIP_NAME" "$RUNNER_TEMP/$CHECKSUM_NAME" <<'PY'
+          import hashlib
+          import pathlib
+          import sys
+          import zipfile
+
+          version = sys.argv[1]
+          archive_path = pathlib.Path(sys.argv[2])
+          checksum_path = pathlib.Path(sys.argv[3])
+          root = pathlib.Path(f"Gen1_Achievements-{version}")
+          files = [
+              pathlib.Path("manifest.json"),
+              pathlib.Path("main.lua"),
+              pathlib.Path("README.md"),
+              pathlib.Path("CHANGELOG.md"),
+          ]
+          files.extend(sorted(pathlib.Path("data").rglob("*")))
+          files.extend(sorted(pathlib.Path("docs").rglob("*")))
+          with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+              for path in files:
+                  if path.is_file():
+                      archive.write(path, (root / path).as_posix())
+          digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+          checksum_path.write_text(f"{digest}  {archive_path.name}\\n", encoding="utf-8")
+          with zipfile.ZipFile(archive_path) as archive:
+              bad = archive.testzip()
+              if bad:
+                  raise SystemExit(f"ZIP integrity check failed at {bad}")
+          PY
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip=$RUNNER_TEMP/$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "checksum=$RUNNER_TEMP/$CHECKSUM_NAME" >> "$GITHUB_OUTPUT"
+          echo "notes=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ steps.package.outputs.tag }}" \
+            "${{ steps.package.outputs.zip }}" \
+            "${{ steps.package.outputs.checksum }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Gen1 Achievements ${{ steps.package.outputs.version }}" \
+            --notes-file "${{ steps.package.outputs.notes }}" \
+            --target "$RELEASE_SHA" \
+            --latest

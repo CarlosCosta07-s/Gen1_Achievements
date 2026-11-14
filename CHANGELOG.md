@@ -1,3 +1,11 @@
+## 0.5.14 — Destaque do alvo selecionado e release pública
+
+- Adicionado um contorno claro e uma faixa interna ao cartão de alvo atualmente percorrido pelo cursor.
+- Preservada a apresentação de HP, condições de estado e papéis dos battlers; o destaque acompanha o cursor sem alterar os IDs nativos enviados ao motor.
+- Documentada a limitação da API pública: ela expõe battlers presentes, mas não uma lista completa de alvos permitidos por golpe; nenhum alvo é rotulado como indisponível por suposição.
+- Adicionado fluxo de publicação que só cria a release pública após a validação da branch main concluir com sucesso.
+- O pacote de release inclui manifest, código, dados, documentação, ZIP instalável e checksum SHA-256.
+
 ## 0.5.13 — Indicadores de condições de estado
 
 - Adicionados indicadores compactos de estado aos cartões de alvo para SLP, PSN, BRN, FRZ, PAR e TOX, usando valores normalizados pela API pública.
