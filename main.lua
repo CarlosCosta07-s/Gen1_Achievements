@@ -1116,11 +1116,12 @@ return function(mod)
             end
         elseif snapshot.prompt == "moves" then
             local move = snapshot.moves and snapshot.moves[battle_ui.cursor]
+            local movePp = move and tonumber(move.pp)
             if move and move.slot then
-                if move.disabled or (tonumber(move.pp) or 0) <= 0 then return false end
+                if move.disabled or (movePp ~= nil and movePp <= 0) then return false end
                 return submit_battle_intent(game, "move", { slot = move.slot })
             elseif move then
-                if move.disabled or (tonumber(move.pp) or 0) <= 0 then return false end
+                if move.disabled or (movePp ~= nil and movePp <= 0) then return false end
                 return submit_battle_intent(game, "move", { slot = battle_ui.cursor })
             end
         elseif snapshot.prompt == "target" then
@@ -1419,10 +1420,12 @@ return function(mod)
             draw_battle_text(graphics, typeLabel, chipX + 1, metaY,
                 chipWidth - 2, "center", { 1, 1, 1, 1 }, 8, typeScale)
 
-            if metadata.pp ~= nil then
-                local ppText = ("PP %s/%s"):format(
-                    tostring(metadata.pp), tostring(metadata.maxPp or metadata.pp)
-                )
+            if metadata.showPp then
+                local pp = tonumber(metadata.pp)
+                local ppText = pp == nil and "PP --/--"
+                    or ("PP %s/%s"):format(
+                        tostring(metadata.pp), tostring(metadata.maxPp or metadata.pp)
+                    )
                 local ppWidth = math.max(16, rect.w - chipWidth - 14)
                 local ppX = rect.x + rect.w - 4 - ppWidth
                 local ppScale = math.min(1, ppWidth / math.max(1,
@@ -1483,11 +1486,14 @@ return function(mod)
                 elseif snapshot.prompt == "moves" then
                     local move = snapshot.moves and snapshot.moves[index] or {}
                     local name = move.name or move.id or "—"
-                    local disabled = move.disabled == true or (tonumber(move.pp) or 0) <= 0
+                    local movePp = tonumber(move.pp)
+                    local disabled = move.disabled == true
+                        or (movePp ~= nil and movePp <= 0)
                     draw_battle_card(graphics, rect, name, theme, selected, disabled, {
                         type = move.type,
-                        pp = move.pp or 0,
-                        maxPp = move.maxPp or move.pp or 0,
+                        pp = move.pp,
+                        maxPp = move.maxPp,
+                        showPp = true,
                     })
                 elseif snapshot.prompt == "target" then
                     local targetId = snapshot.targets and snapshot.targets[index]
