@@ -36,6 +36,8 @@ jobs:
 
       - name: Build installable package and release notes
         id: package
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           VERSION="$(python3 -c 'import json; print(json.load(open("manifest.json", encoding="utf-8"))["version"])')"
@@ -53,7 +55,7 @@ jobs:
           version, destination = sys.argv[1], pathlib.Path(sys.argv[2])
           changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
           match = re.search(
-              rf"(?ms)^##\\s+{re.escape(version)}\\b.*?\\n(.*?)(?=^##\\s+|\\Z)",
+              rf"(?ms)^##\s+{re.escape(version)}\b.*?\n(.*?)(?=^##\s+|\Z)",
               changelog,
           )
           if not match:
@@ -61,7 +63,7 @@ jobs:
           notes = match.group(1).strip()
           if not notes:
               raise SystemExit(f"CHANGELOG.md section for {version} is empty")
-          destination.write_text(notes + "\\n", encoding="utf-8")
+          destination.write_text(notes + "\n", encoding="utf-8")
           PY
 
           PACKAGE="Gen1_Achievements-$VERSION"
@@ -90,7 +92,7 @@ jobs:
                   if path.is_file():
                       archive.write(path, (root / path).as_posix())
           digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
-          checksum_path.write_text(f"{digest}  {archive_path.name}\\n", encoding="utf-8")
+          checksum_path.write_text(f"{digest}  {archive_path.name}\n", encoding="utf-8")
           with zipfile.ZipFile(archive_path) as archive:
               bad = archive.testzip()
               if bad:

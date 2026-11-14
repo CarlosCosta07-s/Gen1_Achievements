@@ -29,6 +29,12 @@ A nova interface usa uma bandeja escura e cartões claros, com hierarquia inspir
 
 O mod não inclui sprites, fontes ou recursos extraídos de Black/White. Ele envia escolhas semânticas para o motor por meio da API pública de batalha. A navegação funciona com teclado, gamepad, controles virtuais Android/iOS e toque direto; toques são descartados quando o painel visível pertence a uma revisão/fase anterior da batalha. A mochila, a equipe, a execução dos golpes e as regras do combate continuam nativas. Rejeições específicas de alvo retornadas pelo motor recebem avisos localizados no painel, sem tentar antecipar as regras de cada golpe. Seleção forçada de equipe e mensagens também permanecem sob controle do jogo. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md).
 
+## Releases públicas
+
+As versões estáveis são publicadas em [GitHub Releases](https://github.com/CarlosCosta07-s/Gen1_Achievements/releases). Cada release validada inclui um ZIP instalável com `manifest.json`, `main.lua`, dados e documentação, além do checksum SHA-256. A publicação só acontece depois que catálogo, contrato de eventos, sintaxe LuaJIT e runtime harness passam na branch `main`.
+
+**Licença:** este repositório ainda não contém um arquivo `LICENSE`. O código e os pacotes estão publicamente acessíveis para download, mas o projeto ainda não declarou termos de licença para redistribuição ou modificação. Nenhuma licença foi presumida nesta publicação.
+
 ## Jogos e perfis
 
 Os onze jogos têm catálogos e arquivos de progresso independentes:
