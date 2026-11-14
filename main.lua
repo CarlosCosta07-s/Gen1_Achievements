@@ -988,6 +988,23 @@ return function(mod)
         return actions
     end
 
+    -- Gen 1's Mimic selector and Safari Zone menu have validated public
+    -- intents of their own; keep their semantics while using the shared tray.
+    local BATTLE_SAFARI_ACTIONS = {
+        { key = "ball", label = "battle_safari_ball" },
+        { key = "bait", label = "battle_safari_bait" },
+        { key = "rock", label = "battle_safari_rock" },
+        { key = "run", label = "battle_run" },
+    }
+
+    local function battle_entries_for(snapshot, game)
+        if snapshot.prompt == "menu" then return battle_actions_for(game) end
+        if snapshot.prompt == "moves" then return snapshot.moves or {} end
+        if snapshot.prompt == "mimic" then return snapshot.mimicMoves or {} end
+        if snapshot.prompt == "safari" then return BATTLE_SAFARI_ACTIONS end
+        return {}
+    end
+
     local battle_ui = {
         game = nil,
         prompt = nil,
@@ -1005,13 +1022,16 @@ return function(mod)
 
     local function is_owned_battle_prompt(snapshot)
         if type(snapshot) ~= "table" then return false end
-        if snapshot.kind == "link" or snapshot.kind == "oldman"
-            or snapshot.kind == "safari" then
+        if snapshot.kind == "link" or snapshot.kind == "oldman" then
             return false
         end
+        -- Safari is controllable only in its dedicated Safari action prompt.
+        if snapshot.kind == "safari" then return snapshot.prompt == "safari" end
         return snapshot.prompt == "menu"
             or snapshot.prompt == "moves"
             or snapshot.prompt == "target"
+            or snapshot.prompt == "mimic"
+            or snapshot.prompt == "safari"
     end
 
     local function read_battle_snapshot()
@@ -1045,18 +1065,22 @@ return function(mod)
                         break
                     end
                 end
+            elseif snapshot.prompt == "mimic" then
+                local index = tonumber(snapshot.mimicIndex)
+                local count = #(snapshot.mimicMoves or {})
+                if index and index % 1 == 0 and index >= 1 and index <= count then
+                    battle_ui.cursor = index
+                end
             end
         end
         battle_ui.snapshot = snapshot
     end
 
     local function battle_entry_count(snapshot, game)
-        if snapshot.prompt == "menu" then return #battle_actions_for(game) end
-        if snapshot.prompt == "moves" then
-            return math.max(0, math.min(4, #(snapshot.moves or {})))
+        if snapshot.prompt == "target" then
+            return math.min(4, #(snapshot.targets or {}))
         end
-        if snapshot.prompt == "target" then return #(snapshot.targets or {}) end
-        return 0
+        return math.min(4, #battle_entries_for(snapshot, game))
     end
 
     local function battle_grid_cursor(cursor, count, direction)
@@ -1116,13 +1140,26 @@ return function(mod)
             end
         elseif snapshot.prompt == "moves" then
             local move = snapshot.moves and snapshot.moves[battle_ui.cursor]
-            local movePp = move and tonumber(move.pp)
+            local movePp = move and (tonumber(move.pp) or 0) or 0
             if move and move.slot then
-                if move.disabled or (movePp ~= nil and movePp <= 0) then return false end
+                if move.disabled or movePp <= 0 then return false end
                 return submit_battle_intent(game, "move", { slot = move.slot })
             elseif move then
-                if move.disabled or (movePp ~= nil and movePp <= 0) then return false end
+                if move.disabled or movePp <= 0 then return false end
                 return submit_battle_intent(game, "move", { slot = battle_ui.cursor })
+            end
+        elseif snapshot.prompt == "mimic" then
+            local move = snapshot.mimicMoves and snapshot.mimicMoves[battle_ui.cursor]
+            if move then
+                return submit_battle_intent(game, "mimic", {
+                    index = tonumber(move.index) or battle_ui.cursor,
+                })
+            end
+        elseif snapshot.prompt == "safari" then
+            if (tonumber(snapshot.safariBalls) or 0) <= 0 then return false end
+            local action = BATTLE_SAFARI_ACTIONS[battle_ui.cursor]
+            if action then
+                return submit_battle_intent(game, "safari", { action = action.key })
             end
         elseif snapshot.prompt == "target" then
             local target = snapshot.targets and snapshot.targets[battle_ui.cursor]
@@ -1296,13 +1333,13 @@ return function(mod)
         return BATTLE_THEMES[id] or BATTLE_THEMES.red
     end
 
-    local function battle_layout(snapshot, viewport, theme, actions)
+    local function battle_layout(snapshot, viewport, theme, entries)
         local scale = tonumber(viewport.scale) or 1
         if scale <= 0 then scale = 1 end
         local width = (tonumber(viewport.gameWidth) or 160 * scale) / scale
         local height = (tonumber(viewport.gameHeight) or 144 * scale) / scale
-        local panel_height = (snapshot.prompt == "moves" or snapshot.prompt == "target")
-            and 62 or 52
+        local panel_height = (snapshot.prompt == "moves" or snapshot.prompt == "target"
+            or snapshot.prompt == "mimic") and 62 or 52
         panel_height = math.min(panel_height, height - 18)
         local panel = {
             x = 5, y = height - panel_height - 4,
@@ -1314,11 +1351,10 @@ return function(mod)
         local content_h = panel.h - header - 7
         local buttons = {}
 
-        if snapshot.prompt == "menu" or snapshot.prompt == "moves" then
+        if snapshot.prompt == "menu" or snapshot.prompt == "moves"
+            or snapshot.prompt == "mimic" or snapshot.prompt == "safari" then
             local cell_w = (panel.w - 10 - gap) / 2
             local cell_h = (content_h - gap) / 2
-            local entries = snapshot.prompt == "menu" and actions
-                or snapshot.moves or {}
             for index = 1, math.min(4, #entries) do
                 local row = math.floor((index - 1) / 2)
                 local column = (index - 1) % 2
@@ -1405,12 +1441,13 @@ return function(mod)
         draw_battle_text(graphics, label, rect.x + 4, rect.y + 2,
             text_width, "left", foreground, 13, label_scale)
 
+        local metaY = rect.y + rect.h - 10
+        local chipWidth = 0
         if metadata and metadata.type then
             local typeLabel = tostring(metadata.type):upper()
             local typeColor = BATTLE_TYPE_COLORS[typeLabel] or theme.accent
-            local chipWidth = math.min(37, math.max(24, rect.w * 0.34))
+            chipWidth = math.min(37, math.max(24, rect.w * 0.34))
             local chipX = rect.x + 4
-            local metaY = rect.y + rect.h - 10
             local chipHeight = 7
             graphics.setColor(typeColor[1], typeColor[2], typeColor[3], 1)
             graphics.rectangle("fill", chipX, metaY, chipWidth, chipHeight,
@@ -1419,20 +1456,21 @@ return function(mod)
                 glyph_count(typeLabel, mod.ui.Font) * 6))
             draw_battle_text(graphics, typeLabel, chipX + 1, metaY,
                 chipWidth - 2, "center", { 1, 1, 1, 1 }, 8, typeScale)
+        end
 
-            if metadata.showPp then
-                local pp = tonumber(metadata.pp)
-                local ppText = pp == nil and "PP --/--"
-                    or ("PP %s/%s"):format(
-                        tostring(metadata.pp), tostring(metadata.maxPp or metadata.pp)
-                    )
-                local ppWidth = math.max(16, rect.w - chipWidth - 14)
-                local ppX = rect.x + rect.w - 4 - ppWidth
-                local ppScale = math.min(1, ppWidth / math.max(1,
-                    glyph_count(ppText, mod.ui.Font) * 6))
-                draw_battle_text(graphics, ppText, ppX, metaY, ppWidth,
-                    "right", foreground, 9, ppScale)
-            end
+        -- The public UnifiedBattle facade normalizes absent PP to zero.
+        -- Keep the UI aligned with that contract instead of inventing an
+        -- "unknown" state that cannot reach a mod through this facade.
+        if metadata and metadata.showPp then
+            local pp = tonumber(metadata.pp) or 0
+            local maxPp = tonumber(metadata.maxPp) or pp
+            local ppText = ("PP %s/%s"):format(tostring(pp), tostring(maxPp))
+            local ppWidth = math.max(16, rect.w - (chipWidth > 0 and chipWidth + 14 or 8))
+            local ppX = rect.x + rect.w - 4 - ppWidth
+            local ppScale = math.min(1, ppWidth / math.max(1,
+                glyph_count(ppText, mod.ui.Font) * 6))
+            draw_battle_text(graphics, ppText, ppX, metaY, ppWidth,
+                "right", foreground, 9, ppScale)
         end
     end
 
@@ -1444,8 +1482,8 @@ return function(mod)
         end
         local theme = battle_theme(game)
         sync_battle_ui(game, snapshot)
-        local actions = battle_actions_for(game)
-        local layout = battle_layout(snapshot, viewport, theme, actions)
+        local entries = battle_entries_for(snapshot, game)
+        local layout = battle_layout(snapshot, viewport, theme, entries)
         battle_ui.layout = layout
         battle_ui.snapshot = snapshot
 
@@ -1466,12 +1504,17 @@ return function(mod)
             local dictionary = TEXT[selected_language()] or TEXT[DEFAULT_LANGUAGE]
             local title = snapshot.prompt == "menu" and dictionary.battle_action
                 or snapshot.prompt == "moves" and dictionary.battle_moves
-                or dictionary.battle_target
+                or snapshot.prompt == "target" and dictionary.battle_target
+                or snapshot.prompt == "mimic" and dictionary.battle_mimic
+                or dictionary.battle_safari
             draw_battle_text(graphics, title or "ACTION", panel.x + 7,
                 panel.y + 2, panel.w * 0.36, "left", { 1, 1, 1, 1 }, 12)
-            local help = snapshot.prompt == "menu"
-                and (dictionary.battle_select or "A: SELECT")
-                or (dictionary.battle_back or "B: BACK")
+            local help = (snapshot.prompt == "moves" or snapshot.prompt == "target")
+                and (dictionary.battle_back or "B: BACK")
+                or snapshot.prompt == "safari"
+                    and ((dictionary.battle_safari_balls or "BALLS") .. ": "
+                        .. tostring(tonumber(snapshot.safariBalls) or 0))
+                or (dictionary.battle_select or "A: SELECT")
             draw_battle_text(graphics, help, panel.x + panel.w * 0.40,
                 panel.y + 2, panel.w * 0.56, "right",
                 { 0.82, 0.85, 0.90, 1 }, 14)
@@ -1479,20 +1522,29 @@ return function(mod)
             for index, rect in ipairs(layout.buttons) do
                 local selected = index == battle_ui.cursor
                 if snapshot.prompt == "menu" then
-                    local action = actions[index]
+                    local action = entries[index]
                     local key = action and action.label or "battle_choose"
                     local label = dictionary[key] or key:upper()
                     draw_battle_card(graphics, rect, label, theme, selected, false)
+                elseif snapshot.prompt == "safari" then
+                    local action = entries[index]
+                    local key = action and action.label or "battle_choose"
+                    local label = dictionary[key] or key:upper()
+                    local noBalls = (tonumber(snapshot.safariBalls) or 0) <= 0
+                    draw_battle_card(graphics, rect, label, theme, selected, noBalls)
+                elseif snapshot.prompt == "mimic" then
+                    local move = entries[index] or {}
+                    draw_battle_card(graphics, rect, move.name or move.id or "—",
+                        theme, selected, false)
                 elseif snapshot.prompt == "moves" then
-                    local move = snapshot.moves and snapshot.moves[index] or {}
+                    local move = entries[index] or {}
                     local name = move.name or move.id or "—"
-                    local movePp = tonumber(move.pp)
-                    local disabled = move.disabled == true
-                        or (movePp ~= nil and movePp <= 0)
+                    local movePp = tonumber(move.pp) or 0
+                    local disabled = move.disabled == true or movePp <= 0
                     draw_battle_card(graphics, rect, name, theme, selected, disabled, {
                         type = move.type,
-                        pp = move.pp,
-                        maxPp = move.maxPp,
+                        pp = movePp,
+                        maxPp = tonumber(move.maxPp) or movePp,
                         showPp = true,
                     })
                 elseif snapshot.prompt == "target" then
@@ -1509,8 +1561,12 @@ return function(mod)
                 end
             end
 
-            if snapshot.prompt == "moves" and #layout.buttons == 0 then
-                draw_battle_text(graphics, dictionary.battle_no_moves or "NO USABLE MOVES",
+            if (snapshot.prompt == "moves" or snapshot.prompt == "mimic")
+                and #layout.buttons == 0 then
+                local emptyText = snapshot.prompt == "mimic"
+                    and (dictionary.battle_no_mimic_moves or dictionary.battle_no_moves)
+                    or dictionary.battle_no_moves
+                draw_battle_text(graphics, emptyText or "NO USABLE MOVES",
                     panel.x + 8, panel.y + 24, panel.w - 16,
                     "left", { 1, 1, 1, 1 }, 22)
             end
