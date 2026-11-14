@@ -86,3 +86,9 @@ es	battle_select	A: ELEGIR
 es	battle_back	B: VOLVER
 es	battle_no_moves	SIN MOVIMIENTOS
 es	battle_pp	PP
+en	battle_item	ITEM
+en	battle_pack	PACK
+pt-BR	battle_item	ITEM
+pt-BR	battle_pack	BOLSA
+es	battle_item	OBJETO
+es	battle_pack	MOCHILA
