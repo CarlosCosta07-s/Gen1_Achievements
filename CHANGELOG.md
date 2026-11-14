@@ -1,4 +1,8 @@
-# Changelog
+## 0.5.4 — Legibilidade dos cartões de golpe
+
+- Separado o nome do golpe da faixa inferior de tipo e PP, evitando colisões na resolução lógica padrão.
+- Aplicada escala proporcional aos textos de nomes, tipos e PP para preservar a leitura em cartões estreitos.
+- Corrigido o truncamento de tipos com oito caracteres, como Electric e Fighting; o harness agora verifica nome, tipo completo e PP na renderização.
 
 ## 0.5.3 — Coordenadas de toque em viewport ampliado
 
