@@ -785,6 +785,72 @@ return function(mod)
         end)
     end
 
+    -- Reorder native Options rows inside the game's existing categories.
+    -- The game still owns the menu drawing, category pages, fonts and colors.
+    -- Unknown rows and rows from other mods keep their original positions.
+    local OPTION_ROW_ORDER = {
+        { "audioMode", "musicVol", "sfxVol", "pikaVol", "musicFilter" },
+        { "uiLayout", "orientation", "videoMode", "faithfulRes",
+            "screenPos", "vsync", "fpsCap", "logicClock" },
+        { "colors", "shaderfx", "shaderfx2", "uiLetterbox" },
+        { "battleStyle", "animations", "battleLayout", "battleFit",
+            "battleHud", "battleBg" },
+        { "textSpeed", "speedOverworld", "speedBattle", "speedMenu" },
+        { "tilt", "zoom", "voidFill" },
+    }
+
+    local function organize_option_rows(rows)
+        if type(rows) ~= "table" then return rows end
+
+        local output = {}
+        for index, row in ipairs(rows) do
+            output[index] = row
+        end
+
+        for _, ordered_ids in ipairs(OPTION_ROW_ORDER) do
+            local rank = {}
+            for index, id in ipairs(ordered_ids) do
+                rank[id] = index
+            end
+
+            local positions = {}
+            local selected = {}
+            for index, row in ipairs(output) do
+                local row_rank = type(row) == "table" and rank[row.id] or nil
+                if row_rank then
+                    positions[#positions + 1] = index
+                    selected[#selected + 1] = {
+                        row = row,
+                        rank = row_rank,
+                        original_index = index,
+                    }
+                end
+            end
+
+            table.sort(selected, function(left, right)
+                if left.rank == right.rank then
+                    return left.original_index < right.original_index
+                end
+                return left.rank < right.rank
+            end)
+
+            for index, position in ipairs(positions) do
+                output[position] = selected[index].row
+            end
+        end
+
+        return output
+    end
+
+    if mod:supports("hooks", "ui.options.rows") then
+        mod.hooks:wrap("ui.options.rows", function(next, game, rows)
+            -- Preserve the normal hook chain before ordering the returned rows.
+            local output = next(game, rows)
+            if type(output) ~= "table" then return output end
+            return organize_option_rows(output)
+        end)
+    end
+
     -- One local profile per game version, shared by all save files for that
     -- title on this installation. This matches the title-level behavior of
     -- console achievement lists without mixing any of the eleven games.
