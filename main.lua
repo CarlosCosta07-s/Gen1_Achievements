@@ -996,6 +996,8 @@ return function(mod)
         layout = nil,
         pointer_captures = {},
         axis_action = nil,
+        touch_down = {},
+        touch_input_bridge = nil,
     }
     local battle_intent_id = 0
 
@@ -1027,6 +1029,7 @@ return function(mod)
             battle_ui.layout = nil
             battle_ui.pointer_captures = {}
             battle_ui.axis_action = nil
+            battle_ui.touch_down = {}
         end
         if battle_ui.prompt ~= snapshot.prompt then
             battle_ui.prompt = snapshot.prompt
@@ -1148,6 +1151,103 @@ return function(mod)
         return true
     end
 
+    -- The engine's Android/iOS touch overlay injects GB buttons directly
+    -- through Input:overlayPressed, so those presses do not pass through
+    -- input.key / input.gamepad. The public input.step hook sees this source
+    -- before Input promotes it; route its rising edges into our menu and
+    -- temporarily mask the same buttons from the native BattleState.
+    local BATTLE_TOUCH_BUTTONS = {
+        "up", "down", "left", "right", "a", "b", "start", "select",
+    }
+    local BATTLE_TOUCH_ACTIONS = {
+        up = "up", down = "down", left = "left", right = "right",
+        a = "a", b = "b",
+    }
+    local BATTLE_NATIVE_INPUT_MASK = {
+        up = true, down = true, left = true, right = true,
+        a = true, b = true, start = true, select = true,
+    }
+
+    local function touch_button_down(input, button)
+        if not (input and type(input.isTouchDown) == "function") then return false end
+        local ok, down = pcall(input.isTouchDown, input, button)
+        return ok and down == true
+    end
+
+    local function restore_battle_touch_input(input)
+        local bridge = battle_ui.touch_input_bridge
+        if not bridge then return end
+        local owner = bridge.input
+        if owner and owner.wasPressed == bridge.wasPressedWrapper then
+            owner.wasPressed = bridge.wasPressedOriginal
+        end
+        if owner and owner.isDown == bridge.isDownWrapper then
+            owner.isDown = bridge.isDownOriginal
+        end
+        battle_ui.touch_input_bridge = nil
+    end
+
+    local function mask_native_battle_touch_input(input)
+        if not (input and type(input.wasPressed) == "function"
+            and type(input.isDown) == "function") then
+            return
+        end
+        local bridge = battle_ui.touch_input_bridge
+        if bridge and bridge.input == input then return end
+        restore_battle_touch_input()
+        bridge = {
+            input = input,
+            wasPressedOriginal = input.wasPressed,
+            isDownOriginal = input.isDown,
+        }
+        bridge.wasPressedWrapper = function(self, button)
+            if BATTLE_NATIVE_INPUT_MASK[button] then return false end
+            return bridge.wasPressedOriginal(self, button)
+        end
+        bridge.isDownWrapper = function(self, button)
+            if BATTLE_NATIVE_INPUT_MASK[button] then return false end
+            return bridge.isDownOriginal(self, button)
+        end
+        input.wasPressed = bridge.wasPressedWrapper
+        input.isDown = bridge.isDownWrapper
+        battle_ui.touch_input_bridge = bridge
+    end
+
+    local function step_battle_touch_input(game, snapshot)
+        local input = game and game.input
+        if not input then
+            battle_ui.touch_down = {}
+            return
+        end
+
+        if is_owned_battle_prompt(snapshot) then
+            sync_battle_ui(game, snapshot)
+            mask_native_battle_touch_input(input)
+        else
+            restore_battle_touch_input(input)
+        end
+
+        local action
+        for _, button in ipairs(BATTLE_TOUCH_BUTTONS) do
+            local down = touch_button_down(input, button)
+            local wasDown = battle_ui.touch_down[button] == true
+            if is_owned_battle_prompt(snapshot) and down and not wasDown
+                and action == nil then
+                action = BATTLE_TOUCH_ACTIONS[button]
+            end
+            battle_ui.touch_down[button] = down
+        end
+        if action then navigate_battle(game, action) end
+    end
+
+    if mod:supports("hooks", "input.step") then
+        mod.hooks:wrap("input.step", function(next, game, dt)
+            next(game, dt)
+            local snapshot = read_battle_snapshot()
+            step_battle_touch_input(game, snapshot)
+        end)
+    end
+
     local function battle_theme(game)
         local id = game_id_from(game) or "red"
         return BATTLE_THEMES[id] or BATTLE_THEMES.red
@@ -1204,9 +1304,20 @@ return function(mod)
             end
         end
 
+        local backButton
+        if snapshot.prompt == "moves" or snapshot.prompt == "target" then
+            backButton = {
+                x = panel.x + panel.w * 0.40,
+                y = panel.y,
+                w = panel.w * 0.58,
+                h = header + 5,
+            }
+        end
+
         return {
             panel = panel,
             buttons = buttons,
+            backButton = backButton,
             width = width,
             height = height,
             scale = scale,
@@ -1445,6 +1556,12 @@ return function(mod)
             if not inside then return next(game, event) end
 
             battle_ui.pointer_captures[pointerKey] = true
+            local back = layout.backButton
+            if back and x >= back.x and x <= back.x + back.w
+                and y >= back.y and y <= back.y + back.h then
+                submit_battle_intent(game, "back", {})
+                return true
+            end
             for index, rect in ipairs(layout.buttons) do
                 if x >= rect.x and x <= rect.x + rect.w
                     and y >= rect.y and y <= rect.y + rect.h then
@@ -1515,6 +1632,7 @@ return function(mod)
                 if is_owned_battle_prompt(snapshot) then
                     draw_battle_overlay(game, viewport, snapshot)
                 else
+                    restore_battle_touch_input(game and game.input)
                     battle_ui.layout = nil
                     battle_ui.snapshot = nil
                     if battle_ui.prompt ~= nil then
