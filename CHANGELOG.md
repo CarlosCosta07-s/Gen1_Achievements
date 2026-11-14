@@ -1,9 +1,18 @@
+## 0.5.6 — Menus especiais e transições nativas
+
+- Integrado o seletor Mimic de Gen 1 pela intenção pública `mimic`, preservando o índice da lista nativa de golpes copiáveis.
+- Integrado o menu da Safari Zone de Gen 1 pela intenção `safari`, com Ball, Bait, Rock, Run e contador de bolas restantes; todas as ações ficam bloqueadas em zero.
+- Adicionadas traduções de Mimic e Safari nos três idiomas.
+- Seleção forçada de equipe, avanço de mensagens, fases bloqueadas, tutoriais e batalhas Link permanecem nativos; a ponte de toque é restaurada ao sair de uma fase substituída.
+- Alinhado o indicador de PP ao contrato da fachada pública: PP ausente é normalizada como zero e exibida como `PP 0/0`, não como estado desconhecido.
+- Ampliado o harness para testar Mimic, Safari, PP normalizada e transições de volta aos menus nativos.
+
 ## 0.5.5 — Compatibilidade dos snapshots entre gerações
 
-- PP ausente agora é tratado como valor desconhecido (`--/--`), não como zero; golpes só são bloqueados por PP quando o valor numérico é conhecido e igual ou inferior a zero, ou quando o adaptador os marca como desabilitados.
+- PP tratada conforme a fachada pública do motor: valores ausentes chegam ao mod normalizados como zero; o campo `disabled` também é respeitado.
 - Preservado o slot original dos golpes quando a lista compactada da terceira geração não corresponde à posição visual.
 - Reforçada a seleção de alvos da terceira geração para manter IDs nativos esparsos, sem confundi-los com índices da grade.
-- Ampliado o harness com casos de PP desconhecido, PP zero, slot 3 e alvos nativos 0/3; documentadas as diferenças dos contratos Gen 1, Gen 2 e Gen 3.
+- Ampliado o harness com casos de PP normalizada, PP zero, slot 3 e alvos nativos 0/3; documentadas as diferenças dos contratos Gen 1, Gen 2 e Gen 3.
 
 ## 0.5.4 — Legibilidade dos cartões de golpe
 
