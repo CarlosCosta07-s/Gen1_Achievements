@@ -950,11 +950,34 @@ return function(mod)
     }
 
     local BATTLE_ACTIONS = {
-        { key = "fight", label = "battle_fight" },
-        { key = "item", label = "battle_bag" },
-        { key = "party", label = "battle_pokemon" },
-        { key = "run", label = "battle_run" },
+        fight = { key = "fight", label = "battle_fight" },
+        item = { key = "item", label = "battle_bag" },
+        party = { key = "party", label = "battle_pokemon" },
+        run = { key = "run", label = "battle_run" },
     }
+    local BATTLE_ACTION_ORDER = {
+        red = { "fight", "party", "item", "run" },
+        blue = { "fight", "party", "item", "run" },
+        yellow = { "fight", "party", "item", "run" },
+        gold = { "fight", "party", "item", "run" },
+        silver = { "fight", "party", "item", "run" },
+        crystal = { "fight", "party", "item", "run" },
+        firered = { "fight", "item", "party", "run" },
+        leafgreen = { "fight", "item", "party", "run" },
+        ruby = { "fight", "item", "party", "run" },
+        sapphire = { "fight", "item", "party", "run" },
+        emerald = { "fight", "item", "party", "run" },
+    }
+
+    local function battle_actions_for(game)
+        local gameId = game_id_from(game) or "red"
+        local order = BATTLE_ACTION_ORDER[gameId] or BATTLE_ACTION_ORDER.red
+        local actions = {}
+        for _, id in ipairs(order) do
+            actions[#actions + 1] = BATTLE_ACTIONS[id]
+        end
+        return actions
+    end
 
     local battle_ui = {
         game = nil,
@@ -1011,8 +1034,8 @@ return function(mod)
         battle_ui.snapshot = snapshot
     end
 
-    local function battle_entry_count(snapshot)
-        if snapshot.prompt == "menu" then return #BATTLE_ACTIONS end
+    local function battle_entry_count(snapshot, game)
+        if snapshot.prompt == "menu" then return #battle_actions_for(game) end
         if snapshot.prompt == "moves" then
             return math.max(0, math.min(4, #(snapshot.moves or {})))
         end
@@ -1070,7 +1093,8 @@ return function(mod)
     local function activate_battle_cursor(game, snapshot)
         sync_battle_ui(game, snapshot)
         if snapshot.prompt == "menu" then
-            local action = BATTLE_ACTIONS[battle_ui.cursor]
+            local actions = battle_actions_for(game)
+            local action = actions[battle_ui.cursor]
             if action then
                 return submit_battle_intent(game, "menu", { choice = action.key })
             end
@@ -1096,7 +1120,7 @@ return function(mod)
         local snapshot = read_battle_snapshot()
         if not is_owned_battle_prompt(snapshot) then return false end
         sync_battle_ui(game, snapshot)
-        local count = battle_entry_count(snapshot)
+        local count = battle_entry_count(snapshot, game)
         if action == "a" then
             return activate_battle_cursor(game, snapshot)
         elseif action == "b" then
@@ -1120,7 +1144,7 @@ return function(mod)
         return BATTLE_THEMES[id] or BATTLE_THEMES.red
     end
 
-    local function battle_layout(snapshot, viewport, theme)
+    local function battle_layout(snapshot, viewport, theme, actions)
         local scale = tonumber(viewport.scale) or 1
         if scale <= 0 then scale = 1 end
         local width = (tonumber(viewport.gameWidth) or 160 * scale) / scale
@@ -1141,7 +1165,7 @@ return function(mod)
         if snapshot.prompt == "menu" or snapshot.prompt == "moves" then
             local cell_w = (panel.w - 10 - gap) / 2
             local cell_h = (content_h - gap) / 2
-            local entries = snapshot.prompt == "menu" and BATTLE_ACTIONS
+            local entries = snapshot.prompt == "menu" and actions
                 or snapshot.moves or {}
             for index = 1, math.min(4, #entries) do
                 local row = math.floor((index - 1) / 2)
@@ -1238,7 +1262,8 @@ return function(mod)
         end
         local theme = battle_theme(game)
         sync_battle_ui(game, snapshot)
-        local layout = battle_layout(snapshot, viewport, theme)
+        local actions = battle_actions_for(game)
+        local layout = battle_layout(snapshot, viewport, theme, actions)
         battle_ui.layout = layout
         battle_ui.snapshot = snapshot
 
@@ -1272,7 +1297,7 @@ return function(mod)
             for index, rect in ipairs(layout.buttons) do
                 local selected = index == battle_ui.cursor
                 if snapshot.prompt == "menu" then
-                    local action = BATTLE_ACTIONS[index]
+                    local action = actions[index]
                     local key = action and action.label or "battle_choose"
                     local label = dictionary[key] or key:upper()
                     draw_battle_card(graphics, rect, label, theme, selected, false)
