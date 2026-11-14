@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 — Validação reforçada dos perfis
+
+- Ampliado o harness para rejeitar perfis com desbloqueios duplicados, IDs inexistentes, registros malformados, versões desconhecidas, contadores inválidos ou incompatíveis com conquistas instantâneas.
+- Verificada a rejeição integral de um perfil corrompido, sem aceitar seu prefixo aparentemente válido.
+- Verificada a preservação de desbloqueios e progresso parcial quando um perfil válido é regravado.
+- Adicionado teste explícito de início de sessão por `save.created`, mantendo o bloqueio até a criação real do save.
+
 ## 0.4.1 — Contrato de eventos e validação de payloads
 
 - Adicionado um snapshot do contrato de eventos da Portable Mod API 3, fixado a uma revisão identificável do Gen1Recomp.

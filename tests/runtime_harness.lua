@@ -367,4 +367,98 @@ end
 check(count_unlocks(gate_env, "red_evolve_5") == 1,
     "save.loaded did not reopen the event gate")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; session gate, matching, deduplication, per-title isolation, legacy migration and write failures verified."):format(#rows))
+
+-- Malformed profiles must be rejected as a whole, never partially trusted.
+-- Each case starts with one valid unlock so the assertion proves that the
+-- parser discarded the complete invalid profile before persisting new data.
+local malformed_profiles = {
+    {
+        name = "duplicate unlock",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nU|red_dex_10\n",
+    },
+    {
+        name = "progress on an instant achievement",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nP|red_articuno_captured|1\n",
+    },
+    {
+        name = "counter already at its unlock threshold",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nP|red_evolve_5|5\n",
+    },
+    {
+        name = "counter above its unlock threshold",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nP|red_evolve_5|6\n",
+    },
+    {
+        name = "duplicate counter row",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nP|red_evolve_5|1\nP|red_evolve_5|2\n",
+    },
+    {
+        name = "unlock and progress collision",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nU|red_evolve_5\nP|red_evolve_5|1\n",
+    },
+    {
+        name = "unknown achievement ID",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nU|red_not_in_catalog\n",
+    },
+    {
+        name = "malformed record",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nX|unexpected\n",
+    },
+    {
+        name = "unsupported profile version",
+        bytes = "GEN1ACHIEVEMENTS99\nU|red_dex_10\n",
+    },
+    {
+        name = "negative counter",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nP|red_evolve_5|-1\n",
+    },
+    {
+        name = "fractional counter",
+        bytes = "GEN1ACHIEVEMENTS2\nU|red_dex_10\nP|red_evolve_5|1.5\n",
+    },
+}
+for _, case in ipairs(malformed_profiles) do
+    local cache = { ["profiles/red.dat"] = case.bytes }
+    local env = make_environment("red", cache)
+    env:dispatch("game.ready", { game = env.game })
+    env:dispatch("save.loaded", {})
+    env:dispatch(articuno[3], make_event(articuno, env, 1, true))
+    local recovered_profile = env.cache["profiles/red.dat"] or ""
+    check(recovered_profile:find("U|red_articuno_captured", 1, true) ~= nil,
+        case.name .. ": a fresh valid unlock was not persisted after recovery")
+    check(recovered_profile:find("U|red_dex_10", 1, true) == nil,
+        case.name .. ": the valid-looking prefix of a malformed profile was trusted")
+    check(recovered_profile:find("red_not_in_catalog", 1, true) == nil,
+        case.name .. ": foreign data survived the profile reset")
+end
+
+-- A valid partial profile must retain both completed achievements and counters
+-- when a different achievement is unlocked and the profile is rewritten.
+local valid_partial_cache = {
+    ["profiles/red.dat"] =
+        "GEN1ACHIEVEMENTS2\nU|red_dex_10\nP|red_evolve_5|2\n",
+}
+local valid_partial_env = make_environment("red", valid_partial_cache)
+valid_partial_env:dispatch("game.ready", { game = valid_partial_env.game })
+valid_partial_env:dispatch("save.loaded", {})
+valid_partial_env:dispatch(articuno[3], make_event(articuno, valid_partial_env, 1, true))
+local preserved = valid_partial_env.cache["profiles/red.dat"] or ""
+check(preserved:find("U|red_dex_10", 1, true) ~= nil,
+    "valid profile rewrite lost an existing unlock")
+check(preserved:find("P|red_evolve_5|2", 1, true) ~= nil,
+    "valid profile rewrite lost partial counter progress")
+
+-- save.created is the legitimate start of a fresh gameplay session too.
+local created_env = make_environment("red")
+created_env:dispatch("game.ready", { game = created_env.game })
+created_env:dispatch(red_row[3], make_event(red_row, created_env, 1, true))
+check(count_unlocks(created_env, "red_evolve_5") == 0,
+    "game.ready alone opened a new-game session")
+created_env:dispatch("save.created", {})
+for iteration = 1, 5 do
+    created_env:dispatch(red_row[3], make_event(red_row, created_env, iteration, true))
+end
+check(count_unlocks(created_env, "red_evolve_5") == 1,
+    "save.created did not open the new-game session")
+
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; session gate, matching, deduplication, per-title isolation, legacy migration, malformed-profile rejection, valid-profile preservation, save.created and write failures verified."):format(#rows))

@@ -65,7 +65,7 @@ luajit tests/runtime_harness.lua
 
 O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores e limites equilibrados de 17–20 conquistas por jogo. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
 
-O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita todas as 205 linhas do catálogo, além dos bloqueios de sessão, isolamento entre jogos, migração do perfil legado e falhas de gravação. O GitHub Actions executa as quatro verificações em cada atualização de `main`.
+O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita todas as 205 linhas do catálogo, além dos bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação. O GitHub Actions executa as quatro verificações em cada atualização de `main`.
 
 Esses testes automatizados não substituem testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 

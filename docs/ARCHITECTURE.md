@@ -72,7 +72,7 @@ O repositório possui três camadas complementares de verificação:
 
 1. `tests/validate_catalog.py` valida as 15 colunas do TSV, unicidade de IDs, idiomas, operadores, limites dos contadores e matriz de eventos autorizados por jogo.
 2. `tests/validate_engine_contract.py` confere se cada evento possui um call site na geração correspondente e se os caminhos e tipos usados pelas condições existem no contrato fixado.
-3. `tests/runtime_harness.lua` carrega o `main.lua` real e fornece uma implementação controlada das superfícies Portable Mod API 3 necessárias. O harness percorre cada linha dos onze catálogos e verifica correspondência de eventos, bloqueio antes de `save.loaded`, desbloqueio único, persistência no arquivo correto, separação entre títulos, migração do formato 1, rejeição de IDs estrangeiros e rollback quando a gravação falha.
+3. `tests/runtime_harness.lua` carrega o `main.lua` real e fornece uma implementação controlada das superfícies Portable Mod API 3 necessárias. O harness percorre cada linha dos onze catálogos e verifica correspondência de eventos, bloqueio antes de `save.loaded`/`save.created`, desbloqueio único, persistência no arquivo correto, separação entre títulos, migração do formato 1, rejeição de IDs estrangeiros, descarte integral de perfis malformados, preservação de perfis válidos e rollback quando a gravação falha.
 
 Para executar:
 
