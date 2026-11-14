@@ -1177,6 +1177,9 @@ check(outside_consumed == false,
 -- The input.step bridge must route those touch edges to our menu and mask
 -- the same GB buttons from the still-running native battle controller.
 local overlay_env = make_environment("red")
+local original_overlay_was_pressed = overlay_env.game.input.wasPressed
+local original_overlay_is_down = overlay_env.game.input.isDown
+local original_overlay_pressed = overlay_env.game.input.overlayPressed
 overlay_env:set_battle_snapshot(menu_snapshot)
 overlay_env:set_touch_down("a", true)
 overlay_env:press("a")
@@ -1204,7 +1207,9 @@ check(#overlay_env:submitted() == 2
     "a fresh virtual touch A did not select the first move")
 overlay_env:set_battle_snapshot({ prompt = "locked", kind = "wild", revision = 3 })
 overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
-check(overlay_env.game.input.wasPressed ~= nil,
+check(overlay_env.game.input.wasPressed == original_overlay_was_pressed
+    and overlay_env.game.input.isDown == original_overlay_is_down
+    and overlay_env.game.input.overlayPressed == original_overlay_pressed,
     "native input methods were not restored after leaving the custom menu")
 
 -- A full virtual tap may be pressed and released between fixed steps.
