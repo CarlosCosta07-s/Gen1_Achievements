@@ -35,7 +35,8 @@ As versões também diferem no acabamento das bordas conforme a geração. O res
 ## Fluxo funcional
 
 - **Ações:** Fight, Bag, Pokémon e Run são enviadas como escolhas `menu`.
-- **Golpes:** quatro cartões exibem nome, tipo e PP; golpes desabilitados ou sem PP não podem ser confirmados.
+- **Golpes:** quatro cartões exibem o nome na faixa superior e tipo/PP na faixa inferior; golpes desabilitados ou sem PP não podem ser confirmados.
+- **Legibilidade:** os textos dos cartões são escalados proporcionalmente à largura disponível, preservando nomes e tipos longos (como Electric e Fighting) sem colidir com o indicador de PP.
 - **Alvos:** quando a API fornece `targets`, o painel mostra os battlers selecionáveis e envia o ID nativo do alvo.
 - **Voltar:** B envia a intenção `back` para sair da seleção de golpe/alvo.
 - **Bag e Pokémon:** continuam abrindo os menus nativos da geração. O mod não reimplementa uso de item, captura, troca ou troca forçada.
