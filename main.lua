@@ -1199,13 +1199,22 @@ return function(mod)
             input = input,
             wasPressedOriginal = input.wasPressed,
             isDownOriginal = input.isDown,
+            isTouchDownOriginal = input.isTouchDown,
         }
+        local function isVirtualTouchHeld(self, button)
+            if not BATTLE_NATIVE_INPUT_MASK[button]
+                or type(bridge.isTouchDownOriginal) ~= "function" then
+                return false
+            end
+            local ok, down = pcall(bridge.isTouchDownOriginal, self, button)
+            return ok and down == true
+        end
         bridge.wasPressedWrapper = function(self, button)
-            if BATTLE_NATIVE_INPUT_MASK[button] then return false end
+            if isVirtualTouchHeld(self, button) then return false end
             return bridge.wasPressedOriginal(self, button)
         end
         bridge.isDownWrapper = function(self, button)
-            if BATTLE_NATIVE_INPUT_MASK[button] then return false end
+            if isVirtualTouchHeld(self, button) then return false end
             return bridge.isDownOriginal(self, button)
         end
         input.wasPressed = bridge.wasPressedWrapper
@@ -1227,17 +1236,25 @@ return function(mod)
             restore_battle_touch_input(input)
         end
 
-        local action
+        local directionAction, confirmAction
         for _, button in ipairs(BATTLE_TOUCH_BUTTONS) do
             local down = touch_button_down(input, button)
             local wasDown = battle_ui.touch_down[button] == true
-            if is_owned_battle_prompt(snapshot) and down and not wasDown
-                and action == nil then
-                action = BATTLE_TOUCH_ACTIONS[button]
+            if is_owned_battle_prompt(snapshot) and down and not wasDown then
+                local action = BATTLE_TOUCH_ACTIONS[button]
+                if action == "up" or action == "down"
+                    or action == "left" or action == "right" then
+                    directionAction = directionAction or action
+                elseif action == "a" or action == "b" then
+                    confirmAction = confirmAction or action
+                end
             end
             battle_ui.touch_down[button] = down
         end
-        if action then navigate_battle(game, action) end
+        -- A player can hold a direction and tap A at the same time. Apply
+        -- the new cursor first, then confirm it in this same input step.
+        if directionAction then navigate_battle(game, directionAction) end
+        if confirmAction then navigate_battle(game, confirmAction) end
     end
 
     if mod:supports("hooks", "input.step") then
