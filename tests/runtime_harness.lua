@@ -97,6 +97,13 @@ local function make_environment(game_id, initial_cache, language)
             isTouchDown = function(_, button)
                 return touch_down[button] == true
             end,
+            overlayPressed = function(_, button)
+                touch_down[button] = true
+                pressed[button] = true
+            end,
+            overlayReleased = function(_, button)
+                touch_down[button] = false
+            end,
         },
         stack = {
             pop = function()
@@ -1199,6 +1206,22 @@ overlay_env:set_battle_snapshot({ prompt = "locked", kind = "wild", revision = 3
 overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
 check(overlay_env.game.input.wasPressed ~= nil,
     "native input methods were not restored after leaving the custom menu")
+
+-- A full virtual tap may be pressed and released between fixed steps.
+-- Capture overlayPressed's edge, then keep masking native input for the
+-- one upcoming Input:step even though isTouchDown is already false.
+local quick_tap_env = make_environment("red")
+quick_tap_env:set_battle_snapshot(menu_snapshot)
+quick_tap_env:run_hook("input.step", nil, quick_tap_env.game, 1 / 60)
+quick_tap_env.game.input:overlayPressed("a")
+quick_tap_env.game.input:overlayReleased("a")
+quick_tap_env:run_hook("input.step", nil, quick_tap_env.game, 1 / 60)
+check(#quick_tap_env:submitted() == 1
+    and quick_tap_env:submitted()[1].kind == "menu"
+    and quick_tap_env:submitted()[1].choice == "fight",
+    "a short virtual tap released before the logic step was lost")
+check(quick_tap_env.game.input:wasPressed("a") == false,
+    "a short virtual tap leaked into the native battle controller")
 
 -- Simultaneous d-pad and A touch must move the cursor before confirming.
 local combo_env = make_environment("red")
