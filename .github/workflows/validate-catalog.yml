@@ -18,6 +18,8 @@ jobs:
           python-version: "3.12"
       - name: Validate catalog and translations
         run: python tests/validate_catalog.py
+      - name: Validate event payload contract
+        run: python tests/validate_engine_contract.py
       - name: Install LuaJIT
         run: |
           sudo apt-get update

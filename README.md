@@ -35,7 +35,7 @@ O idioma escolhido no gerenciador de mods do launcher controla os textos da tela
 
 ## Catálogo
 
-`data/achievements.tsv` é a fonte de dados executada pelo mod. Cada linha declara jogo, id, evento, condição (inclusive caminhos aninhados como mon.species), tipo de progresso, se é secreta, título e descrição nos três idiomas.
+`data/achievements.tsv` é a fonte de dados executada pelo mod. Cada linha declara jogo, id, evento, condição (inclusive caminhos aninhados como `mon.species`), tipo de progresso, se é secreta, título e descrição nos três idiomas.
 
 Cada jogo contém entre 17 e 20 conquistas de Pokédex, evolução, batalhas, insígnias, história, exploração e recursos próprios da geração. Johto inclui os dois circuitos de ginásios, além de Unown, Bug-Catching Contest, Apricorns, ovos e Pokérus; Hoenn inclui os Regis, os Pokémon errantes, fitas e ovos; FireRed/LeafGreen incluem o conteúdo normal das Ilhas Sevii. Nenhuma conquista depende de Mystery Gift, tickets de distribuição, ilhas temporárias, trocas online ou link play.
 
@@ -47,23 +47,27 @@ Cada jogo contém entre 17 e 20 conquistas de Pokédex, evolução, batalhas, in
 - `data/games.json` — títulos e ordem dos jogos.
 - `data/ui_locales.tsv` — textos de interface carregados pelo mod.
 - `data/ui_locales.json` — espelho legível das mesmas traduções para ferramentas e futuras integrações.
-- `docs/` — arquitetura, armazenamento e integração.
-- `tests/validate_catalog.py` — validação automatizada do catálogo.
+- `docs/` — arquitetura, armazenamento, integridade e contrato dos eventos.
+- `tests/validate_catalog.py` — validação estrutural e de traduções.
+- `tests/validate_engine_contract.py` — verificação de eventos, campos e tipos contra a revisão fixada do motor.
 - `tests/runtime_harness.lua` — execução controlada do `main.lua` com uma API de teste.
 
 ## Validação e testes
 
-Execute localmente a validação estática, a verificação de sintaxe LuaJIT e o harness de runtime:
+Execute localmente a validação estrutural e a verificação do contrato de eventos, além da sintaxe LuaJIT e do harness:
 
 ```bash
 python3 tests/validate_catalog.py
+python3 tests/validate_engine_contract.py
 luajit -b main.lua /tmp/gen1-achievements.luac
 luajit tests/runtime_harness.lua
 ```
 
-O validador verifica eventos disponíveis por geração, condições, traduções e o limite equilibrado de 17–20 conquistas por jogo. O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita todas as 205 linhas do catálogo, além dos bloqueios de sessão, isolamento entre jogos, migração do perfil legado e falhas de gravação. O GitHub Actions executa as três verificações em cada atualização de `main`.
+O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores e limites equilibrados de 17–20 conquistas por jogo. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
 
-O harness simula payloads de eventos: ele testa a lógica do mod, mas não substitui testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
+O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita todas as 205 linhas do catálogo, além dos bloqueios de sessão, isolamento entre jogos, migração do perfil legado e falhas de gravação. O GitHub Actions executa as quatro verificações em cada atualização de `main`.
+
+Esses testes automatizados não substituem testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 
 ## Referências técnicas
 
@@ -72,5 +76,6 @@ O harness simula payloads de eventos: ele testa a lógica do mod, mas não subst
 - [Reference: Events](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Events)
 - [Reference: Hooks](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Hooks)
 - [Concepts: Save Model](https://github.com/bryanthaboi/gen1recomp/wiki/Concepts-Save-Model)
+- [Event contract revision](https://github.com/bryanthaboi/gen1recomp/commit/825f1670aeecb4a72345fb473d287fd8ea502ad2)
 
 Nenhuma ROM, save, firmware, imagem extraída ou outro dado proprietário é incluído no repositório.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 — Contrato de eventos e validação de payloads
+
+- Adicionado um snapshot do contrato de eventos da Portable Mod API 3, fixado a uma revisão identificável do Gen1Recomp.
+- Adicionado verificador para checar disponibilidade por geração, campos usados, tipos comparados e guardas de flags.
+- O CI agora falha quando uma conquista depende de um evento, campo ou tipo incompatível com a revisão documentada do motor.
+- Documentadas diferenças de payload entre Gen 1, Gen 2 e Gen 3, sem misturar eventos exclusivos de Johto com outras gerações.
+
 ## 0.4.0 — Catálogo ampliado e proteção de sessão
 
 - Expandido o catálogo para 17–20 conquistas por jogo, mantendo os onze títulos independentes.

@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "bryanthaboi/gen1recomp",
+    "branch": "dev",
+    "commit": "825f1670aeecb4a72345fb473d287fd8ea502ad2",
+    "note": "Contrato documentado a partir dos pontos de emissão e da camada UnifiedCallbacks na revisão indicada. Atualizar este snapshot quando o contrato da Portable Mod API mudar.",
+    "paths": [
+      "src/mods/UnifiedCallbacks.lua",
+      "src/mods/UnifiedRecords.lua",
+      "src/battle/BattleState.lua",
+      "src/ui/gen2/BattleState.lua",
+      "src/core/game3/battle/catching.lua",
+      "src/core/game3/map.lua",
+      "src/core/game3/scripting/flags.lua",
+      "src/world/gen2/Events.lua",
+      "src/core/gen2/Unown.lua",
+      "src/core/gen2/Apricorns.lua",
+      "src/core/gen2/BugContest.lua",
+      "src/core/gen2/Happiness.lua"
+    ]
+  },
+  "games": {
+    "red": 1,
+    "blue": 1,
+    "yellow": 1,
+    "gold": 2,
+    "silver": 2,
+    "crystal": 2,
+    "firered": 3,
+    "leafgreen": 3,
+    "ruby": 3,
+    "sapphire": 3,
+    "emerald": 3
+  },
+  "events": {
+    "pokemon.caught": {
+      "generations": [
+        1,
+        2,
+        3
+      ],
+      "fields": {
+        "species": {
+          "1": "string",
+          "2": "string",
+          "3": "string"
+        },
+        "isNew": {
+          "1": "boolean",
+          "2": "boolean",
+          "3": "boolean"
+        }
+      }
+    },
+    "pokemon.evolved": {
+      "generations": [
+        1,
+        2,
+        3
+      ],
+      "fields": {}
+    },
+    "battle.ended": {
+      "generations": [
+        1,
+        2,
+        3
+      ],
+      "fields": {
+        "result": {
+          "1": "string",
+          "2": "string",
+          "3": "string"
+        }
+      }
+    },
+    "pokemon.move_learned": {
+      "generations": [
+        1,
+        2,
+        3
+      ],
+      "fields": {}
+    },
+    "pokemon.level_up": {
+      "generations": [
+        1,
+        2,
+        3
+      ],
+      "fields": {
+        "mon.species": {
+          "1": "string",
+          "2": "string",
+          "3": "string"
+        }
+      }
+    },
+    "flag.changed": {
+      "generations": [
+        1,
+        2,
+        3
+      ],
+      "fields": {
+        "name": {
+          "1": "string",
+          "2": "number",
+          "3": [
+            "string",
+            "number"
+          ]
+        },
+        "value": {
+          "1": "boolean",
+          "2": "boolean",
+          "3": "boolean"
+        }
+      }
+    },
+    "map.entered": {
+      "generations": [
+        1,
+        2,
+        3
+      ],
+      "fields": {
+        "mapId": {
+          "1": "string",
+          "2": "string",
+          "3": "string"
+        }
+      }
+    },
+    "egg.hatched": {
+      "generations": [
+        2,
+        3
+      ],
+      "fields": {}
+    },
+    "bug_contest.scored": {
+      "generations": [
+        2
+      ],
+      "fields": {
+        "place": {
+          "2": "number"
+        }
+      }
+    },
+    "unown.unlocked": {
+      "generations": [
+        2
+      ],
+      "fields": {
+        "count": {
+          "2": "number"
+        }
+      }
+    },
+    "apricorn.converted": {
+      "generations": [
+        2
+      ],
+      "fields": {}
+    },
+    "pokerus.infected": {
+      "generations": [
+        2,
+        3
+      ],
+      "fields": {}
+    },
+    "happiness.changed": {
+      "generations": [
+        2,
+        3
+      ],
+      "fields": {
+        "to": {
+          "2": "number",
+          "3": "number"
+        }
+      }
+    }
+  }
+}

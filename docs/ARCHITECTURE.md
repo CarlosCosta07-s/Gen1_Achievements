@@ -20,7 +20,7 @@ A tela implementa:
 - progresso numérico em objetivos incrementais;
 - notificação curta na tela após o desbloqueio.
 
-O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`. A primeira versão expandida usa eventos reais de captura, evolução, batalha, mudança de flag, entrada em mapa, reprodução, amizade, Pokérus e mecânicas exclusivas de Johto.
+O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`. O catálogo usa eventos reais de captura, evolução, batalha, mudança de flag, entrada em mapa, reprodução, amizade, Pokérus e mecânicas exclusivas de Johto.
 
 ## Fonte de dados
 
@@ -44,7 +44,13 @@ O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o e
 
 Para `operator=any`, use `*` em `match_field`. Os campos também aceitam caminhos aninhados, como `mon.species`. `one_of` compara o campo com uma lista separada por `|`; `one_of_true` faz o mesmo e exige que `event.value == true`, para contar apenas a ativação real de uma flag; `ends_with` identifica mapas pelo sufixo estável de `mapId`, sem depender do prefixo específico de cada jogo. Em modo `counter`, cada ocorrência que satisfaz a condição incrementa o valor persistido até `target`.
 
-Eventos usados incluem `pokemon.caught`, `pokemon.level_up`, `pokemon.evolved`, `pokemon.move_learned`, `battle.ended`, `map.entered`, `flag.changed`, `egg.hatched`, `happiness.changed`, `pokerus.infected` e eventos exclusivos de Johto. O validador mantém uma matriz de disponibilidade por geração.
+Eventos usados incluem `pokemon.caught`, `pokemon.level_up`, `pokemon.evolved`, `pokemon.move_learned`, `battle.ended`, `map.entered`, `flag.changed`, `egg.hatched`, `happiness.changed`, `pokerus.infected` e eventos exclusivos de Johto. A disponibilidade é verificada por jogo e geração.
+
+## Contrato de eventos do motor
+
+`tests/engine_event_contract.json` registra os eventos, suas gerações e os tipos dos campos que o catálogo consome. A matriz foi conferida no Gen1Recomp `dev` em commit `825f1670aeecb4a72345fb473d287fd8ea502ad2`; o SHA está fixado para que o contrato não mude silenciosamente. `tests/validate_engine_contract.py` confere cada linha do TSV contra essa matriz, incluindo o campo booleano `value` que protege os contadores de flags e os IDs numéricos de Gen 2.
+
+O snapshot é uma especificação testável do contrato documentado e dos produtores consultados; não é uma cópia do motor, nem substitui a execução de cada versão real. A atualização do upstream exige revisar a matriz e atualizar explicitamente a referência.
 
 ## Persistência e identidade
 
@@ -62,20 +68,22 @@ Esse comportamento é mais próximo de conquistas vinculadas ao título em conso
 
 ## Testes automatizados
 
-O repositório possui duas camadas complementares de verificação:
+O repositório possui três camadas complementares de verificação:
 
-1. `tests/validate_catalog.py` valida as 15 colunas do TSV, unicidade de IDs, idiomas, operadores, limites dos contadores e eventos autorizados para cada geração.
-2. `tests/runtime_harness.lua` carrega o `main.lua` real e fornece uma implementação controlada das superfícies Portable Mod API 3 necessárias. O harness percorre cada linha dos onze catálogos e verifica correspondência de eventos, bloqueio antes de `save.loaded`, desbloqueio único, persistência no arquivo correto, separação entre títulos, migração do formato 1, rejeição de IDs estrangeiros e rollback quando a gravação falha.
+1. `tests/validate_catalog.py` valida as 15 colunas do TSV, unicidade de IDs, idiomas, operadores, limites dos contadores e matriz de eventos autorizados por jogo.
+2. `tests/validate_engine_contract.py` confere se cada evento possui um call site na geração correspondente e se os caminhos e tipos usados pelas condições existem no contrato fixado.
+3. `tests/runtime_harness.lua` carrega o `main.lua` real e fornece uma implementação controlada das superfícies Portable Mod API 3 necessárias. O harness percorre cada linha dos onze catálogos e verifica correspondência de eventos, bloqueio antes de `save.loaded`, desbloqueio único, persistência no arquivo correto, separação entre títulos, migração do formato 1, rejeição de IDs estrangeiros e rollback quando a gravação falha.
 
 Para executar:
 
 ```bash
 python3 tests/validate_catalog.py
+python3 tests/validate_engine_contract.py
 luajit -b main.lua /tmp/gen1-achievements.luac
 luajit tests/runtime_harness.lua
 ```
 
-O harness exercita as 205 definições atuais com payloads sintéticos. Isso comprova a lógica de interpretação e persistência do mod sob o contrato simulado; não comprova que cada call site do motor emita exatamente o payload esperado em uma partida real. A confirmação final exige testar as versões executáveis dos onze jogos.
+O harness exercita as 205 definições atuais com payloads sintéticos. As validações estáticas também usam uma matriz versionada do contrato do motor; nenhuma delas substitui testes dentro das versões executáveis dos onze jogos. A confirmação final exige testar as versões reais.
 
 ## Idioma
 
