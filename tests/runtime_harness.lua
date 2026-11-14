@@ -218,6 +218,7 @@ local function make_environment(game_id, initial_cache, language)
 
     local env = {
         game = game,
+        mod = mod,
         cache = cache,
         emitted = emitted,
         listeners = listeners,
@@ -1251,6 +1252,83 @@ check(#double_target_env:submitted() == 1
     and double_target_env:submitted()[1].kind == "target"
     and double_target_env:submitted()[1].target == 2,
     "double-battle partner target was not submitted using its native battler ID")
+
+-- When the engine removes or reorders targets during the same prompt, preserve
+-- the selected native battler ID where possible; otherwise follow the current
+-- native cursor instead of applying the old visual index to the new list.
+local target_refresh_env = make_environment("emerald")
+target_refresh_env:set_battle_snapshot({
+    prompt = "target", kind = "trainer", revision = 40, double = true,
+    active = 0, target = 0, targets = { 0, 1, 2, 3 },
+    player = { name = "PIKACHU" },
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 1, side = "enemy", name = "GASTLY" },
+        { id = 2, side = "player", name = "RAICHU" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+})
+target_refresh_env:run_hook(
+    "input.key", nil, target_refresh_env.game, { phase = "pressed", key = "down" }
+)
+target_refresh_env:set_battle_snapshot({
+    prompt = "target", kind = "trainer", revision = 41, double = true,
+    active = 0, target = 3, targets = { 1, 3 },
+    player = { name = "PIKACHU" },
+    battlers = {
+        { id = 1, side = "enemy", name = "GASTLY" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+})
+target_refresh_env:run_hook(
+    "input.key", nil, target_refresh_env.game, { phase = "pressed", key = "z" }
+)
+check(#target_refresh_env:submitted() == 1
+    and target_refresh_env:submitted()[1].kind == "target"
+    and target_refresh_env:submitted()[1].target == 3
+    and target_refresh_env:submitted()[1].revision == 41,
+    "changed target list reused a stale grid index instead of the current native target")
+
+-- A command captured for one phase must not be reissued with a newer revision
+-- after the engine has already advanced to a different prompt.
+local phase_race_env = make_environment("emerald")
+local phase_race_target = {
+    prompt = "target", kind = "trainer", revision = 50,
+    active = 0, target = 3, targets = { 0, 3 },
+    player = {}, enemy = {}, party = {}, items = {}, moves = {},
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 3, side = "enemy", name = "ONIX" },
+    },
+}
+local phase_race_moves = {
+    prompt = "moves", kind = "trainer", revision = 51,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "THUNDERBOLT", name = "THUNDERBOLT", slot = 3,
+            type = "ELECTRIC", pp = 10, maxPp = 15 },
+    },
+}
+phase_race_env:set_battle_snapshot(phase_race_target)
+local snapshot_reads = 0
+phase_race_env.mod.battle.snapshot = function()
+    snapshot_reads = snapshot_reads + 1
+    return snapshot_reads == 1 and phase_race_target or phase_race_moves
+end
+phase_race_env:run_hook(
+    "input.key", nil, phase_race_env.game, { phase = "pressed", key = "z" }
+)
+check(#phase_race_env:submitted() == 0,
+    "a target command was submitted after the engine advanced to the move prompt")
+phase_race_env.mod.battle.snapshot = function() return phase_race_moves end
+phase_race_env:run_hook(
+    "input.key", nil, phase_race_env.game, { phase = "pressed", key = "z" }
+)
+check(#phase_race_env:submitted() == 1
+    and phase_race_env:submitted()[1].kind == "move"
+    and phase_race_env:submitted()[1].slot == 3
+    and phase_race_env:submitted()[1].revision == 51,
+    "the refreshed move prompt was not usable after rejecting the stale target input")
 
 -- The active actor banner follows the engine when command control moves to
 -- the other player slot; it is not cached from the previous turn.
