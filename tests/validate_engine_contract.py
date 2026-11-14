@@ -17,16 +17,17 @@ GAMES = {
     "firered": 3, "leafgreen": 3, "ruby": 3,
     "sapphire": 3, "emerald": 3,
 }
+NUMERIC_TYPES = {"number", "integer"}
 
 
 def read_rows() -> list[tuple[int, list[str]]]:
     rows: list[tuple[int, list[str]]] = []
     with CATALOG_PATH.open("r", encoding="utf-8") as handle:
         for line_number, raw in enumerate(handle, start=1):
-            line = raw.rstrip("\r\n")
+            line = raw.rstrip("\\r\\n")
             if not line or line.startswith("#"):
                 continue
-            fields = line.split("\t")
+            fields = line.split("\\t")
             if len(fields) != 15:
                 raise ValueError(
                     f"line {line_number}: expected 15 columns, found {len(fields)}"
@@ -48,16 +49,21 @@ def field_types(event: dict, field: str, generation: int) -> set[str]:
 
 
 def compatible_literal(value: str, types: set[str]) -> bool:
-    if "string" in types:
-        return value != ""
-    if "number" in types:
+    if "string" in types and value != "":
+        return True
+    if "boolean" in types and value in {"true", "false"}:
+        return True
+    if types & NUMERIC_TYPES:
         try:
             number = float(value)
         except ValueError:
             return False
-        return math.isfinite(number)
-    if "boolean" in types:
-        return value in {"true", "false"}
+        if not math.isfinite(number):
+            return False
+        if "integer" in types and number.is_integer():
+            return True
+        if "number" in types:
+            return True
     return False
 
 
@@ -109,7 +115,7 @@ def validate() -> int:
                     "a boolean field and the true value"
                 )
             elif operator == "at_least":
-                assert "number" in types and compatible_literal(encoded, {"number"}), (
+                assert types & NUMERIC_TYPES and compatible_literal(encoded, NUMERIC_TYPES), (
                     f"line {line_number} ({achievement_id}): at_least requires "
                     "a numeric field and numeric threshold"
                 )
@@ -140,9 +146,11 @@ def validate() -> int:
 
         checked.add(event_name)
 
-    # Every event named in the TSV must have an explicit contract entry; no
-    # hidden dependency on an undocumented or accidentally inherited event.
-    assert checked == set(events) & checked
+    assert checked == set(events), (
+        "the event contract and catalog must cover exactly the same event names; "
+        f"unused contracts={sorted(set(events) - checked)}, "
+        f"missing contracts={sorted(checked - set(events))}"
+    )
     print(
         f"Engine event contract OK: {len(rows)} catalog rows checked against "
         f"{len(checked)} event contracts (Gen 1, 2 and 3; source {source.get('commit')[:8]})."

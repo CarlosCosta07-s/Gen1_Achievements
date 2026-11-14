@@ -106,10 +106,10 @@
       "fields": {
         "name": {
           "1": "string",
-          "2": "number",
+          "2": "integer",
           "3": [
             "string",
-            "number"
+            "integer"
           ]
         },
         "value": {
@@ -146,7 +146,7 @@
       ],
       "fields": {
         "place": {
-          "2": "number"
+          "2": "integer"
         }
       }
     },
@@ -156,7 +156,7 @@
       ],
       "fields": {
         "count": {
-          "2": "number"
+          "2": "integer"
         }
       }
     },
@@ -180,8 +180,8 @@
       ],
       "fields": {
         "to": {
-          "2": "number",
-          "3": "number"
+          "2": "integer",
+          "3": "integer"
         }
       }
     }
