@@ -1018,6 +1018,7 @@ return function(mod)
         touch_pending = {},
         touch_mask_pending = {},
         touch_input_bridge = nil,
+        notice = nil,
     }
     local battle_intent_id = 0
 
@@ -1125,6 +1126,11 @@ return function(mod)
             battle_ui.target_ids = nil
         end
 
+        local notice = battle_ui.notice
+        if notice and (notice.prompt ~= snapshot.prompt
+            or notice.revision ~= snapshot.revision) then
+            battle_ui.notice = nil
+        end
         battle_ui.snapshot = snapshot
     end
 
@@ -1228,12 +1234,24 @@ return function(mod)
 
         local ok, accepted, reason = pcall(mod.battle.submit, mod.battle, intent)
         if not ok or accepted ~= true then
+            local rejection = tostring(ok and reason or accepted)
+            local noticeKey = kind == "target"
+                and rejection == "that move cannot target its user"
+                and "battle_target_self_blocked"
+                or "battle_action_rejected"
+            battle_ui.notice = {
+                key = noticeKey,
+                prompt = snapshot.prompt,
+                revision = snapshot.revision,
+                remaining = 2.4,
+            }
             mod.log:warn(
                 "Battle UI command rejected (%s): %s",
-                tostring(kind), tostring(ok and reason or accepted)
+                tostring(kind), rejection
             )
             return false
         end
+        battle_ui.notice = nil
         battle_ui.snapshot = nil
         battle_ui.target_ids = nil
         battle_ui.layout = nil
@@ -1647,15 +1665,26 @@ return function(mod)
                 or dictionary.battle_safari
             draw_battle_text(graphics, title or "ACTION", panel.x + 7,
                 panel.y + 2, panel.w * 0.36, "left", { 1, 1, 1, 1 }, 12)
-            local help = (snapshot.prompt == "moves" or snapshot.prompt == "target")
-                and (dictionary.battle_back or "B: BACK")
+            local notice = battle_ui.notice
+            local noticeVisible = notice
+                and notice.prompt == snapshot.prompt
+                and notice.revision == snapshot.revision
+                and (tonumber(notice.remaining) or 0) > 0
+            local help = noticeVisible and dictionary[notice.key]
+                or (snapshot.prompt == "moves" or snapshot.prompt == "target")
+                    and (dictionary.battle_back or "B: BACK")
                 or snapshot.prompt == "safari"
                     and ((dictionary.battle_safari_balls or "BALLS") .. ": "
                         .. tostring(tonumber(snapshot.safariBalls) or 0))
                 or (dictionary.battle_select or "A: SELECT")
+            local helpWidth = panel.w * 0.56
+            local helpScale = noticeVisible and math.min(1,
+                helpWidth / math.max(1, glyph_count(help, mod.ui.Font) * 6)) or 1
             draw_battle_text(graphics, help, panel.x + panel.w * 0.40,
-                panel.y + 2, panel.w * 0.56, "right",
-                { 0.82, 0.85, 0.90, 1 }, 14)
+                panel.y + 2, helpWidth, "right",
+                noticeVisible and { 1, 0.68, 0.42, 1 }
+                    or { 0.82, 0.85, 0.90, 1 },
+                noticeVisible and 32 or 14, helpScale)
             if layout.showDoubleActor then
                 local actorLabel = (dictionary.battle_active or "ACTIVE")
                     .. ": " .. tostring(layout.actorName)
@@ -1975,6 +2004,13 @@ return function(mod)
     if mod:supports("hooks", "core.update") then
         mod.hooks:wrap("core.update", function(next, game, dt)
             next(game, dt)
+            if battle_ui.notice then
+                battle_ui.notice.remaining = battle_ui.notice.remaining
+                    - (tonumber(dt) or 0)
+                if battle_ui.notice.remaining <= 0 then
+                    battle_ui.notice = nil
+                end
+            end
             if toast then
                 toast_remaining = toast_remaining - (tonumber(dt) or 0)
                 if toast_remaining <= 0 then
