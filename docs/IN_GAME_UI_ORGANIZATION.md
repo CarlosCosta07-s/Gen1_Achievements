@@ -32,6 +32,8 @@ A sequência interna adotada acompanha as categorias existentes no menu do jogo:
 
 A ordem externa das categorias continua sendo responsabilidade da interface nativa de cada jogo. O mod reorganiza somente os itens dentro das categorias reconhecidas pelo jogo.
 
+Referências do contrato público: [Reference Hooks](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Hooks) documenta ui.options.rows para as três gerações; [Reference Mod Object](https://github.com/bryanthaboi/gen1recomp/wiki/Reference-Mod-Object) documenta que as linhas registradas com mod.options:define aparecem no gerenciador de mods.
+
 ## Compatibilidade com outros mods
 
 A rotina trabalha apenas com IDs nativos conhecidos. As opções sem ID reconhecido e as linhas adicionadas por outros mods conservam suas posições. Os objetos de cada linha não são reescritos: callbacks, valores, rótulos, estado e outros campos são preservados.
