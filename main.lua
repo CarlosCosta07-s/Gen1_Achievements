@@ -587,6 +587,14 @@ return function(mod)
     end
 
     local function draw_screen(game, self)
+        local graphics = love and love.graphics
+        local previousColor
+        if graphics and type(graphics.getColor) == "function" then
+            local ok, r, g, b, a = pcall(graphics.getColor)
+            if ok then previousColor = { r, g, b, a } end
+        end
+
+        local function draw_contents()
         local Font = mod.ui.Font
         local language = selected_language()
         local dictionary = TEXT[language] or TEXT[DEFAULT_LANGUAGE]
@@ -604,6 +612,9 @@ return function(mod)
         end
 
         Font.drawBox(0, 0, 20, 18)
+        if graphics and type(graphics.setColor) == "function" then
+            graphics.setColor(0, 0, 0, 1)
+        end
         Font.draw(dictionary.title, 16, 8)
         Font.draw(clip_text(game_title, 18, Font), 16, 20)
         local percentage = total_count > 0
@@ -707,6 +718,21 @@ return function(mod)
 
         Font.draw(clip_text(dictionary.filter, 18, Font), 16, 124)
         Font.draw(dictionary.details, 16, 136)
+        end
+
+        -- Isolate rendering failures and restore the caller's color even when
+        -- one of the localized labels cannot be drawn.
+        local ok, drawError = pcall(draw_contents)
+        if graphics and type(graphics.setColor) == "function" then
+            if previousColor then
+                graphics.setColor(unpack(previousColor))
+            else
+                graphics.setColor(1, 1, 1, 1)
+            end
+        end
+        if not ok then
+            mod.log:warn("Achievement screen draw failed: %s", tostring(drawError))
+        end
     end
 
     local function change_filter(self, direction)
@@ -1548,7 +1574,9 @@ return function(mod)
         panel_height = math.min(panel_height, height - 18)
         local panel = {
             x = 5, y = height - panel_height - 4,
-            w = width - 10, h = panel_height,
+            -- Android virtual B can cover the extreme right edge of the
+            -- game viewport. Keep a small safe gutter on every platform.
+            w = math.max(80, width - 20), h = panel_height,
         }
         local gap = width >= 200 and 5 or 3
         local header = showActorHp and 19 or showDoubleActor and 13 or 10
@@ -1635,6 +1663,19 @@ return function(mod)
         end
     end
 
+    local function battle_text_width(value)
+        value = tostring(value or "")
+        local font = mod.ui.Font
+        if font and type(font.measure) == "function" then
+            local ok, width = pcall(font.measure, value)
+            if ok and type(width) == "number" and width == width
+                and width ~= math.huge and width ~= -math.huge and width >= 0 then
+                return width
+            end
+        end
+        return glyph_count(value, font) * 8
+    end
+
     local function draw_battle_card(graphics, rect, label, theme, selected, disabled, metadata)
         local background = disabled and { 0.72, 0.73, 0.75, 1 }
             or selected and theme.accent
@@ -1664,7 +1705,7 @@ return function(mod)
         local statusWidth = statusChip and 22 or 0
         local text_width = rect.w - 8 - (statusWidth > 0 and statusWidth + 4 or 0)
         local label_scale = math.min(1, text_width / math.max(1,
-            glyph_count(tostring(label or ""), mod.ui.Font) * 6))
+            battle_text_width(label)))
         draw_battle_text(graphics, label, rect.x + 4, rect.y + 2,
             text_width, "left", foreground, 13, label_scale)
 
@@ -1711,7 +1752,7 @@ return function(mod)
             graphics.rectangle("fill", chipX, metaY, chipWidth, chipHeight,
                 theme.radius, theme.radius)
             local typeScale = math.min(1, (chipWidth - 4) / math.max(1,
-                glyph_count(typeLabel, mod.ui.Font) * 6))
+                battle_text_width(typeLabel)))
             draw_battle_text(graphics, typeLabel, chipX + 1, metaY,
                 chipWidth - 2, "center", { 1, 1, 1, 1 }, 8, typeScale)
         elseif metadata and metadata.tag then
@@ -1724,7 +1765,7 @@ return function(mod)
             graphics.rectangle("fill", chipX, metaY, chipWidth, chipHeight,
                 theme.radius, theme.radius)
             local tagScale = math.min(1, (chipWidth - 4) / math.max(1,
-                glyph_count(tagLabel, mod.ui.Font) * 6))
+                battle_text_width(tagLabel)))
             draw_battle_text(graphics, tagLabel, chipX + 1, metaY,
                 chipWidth - 2, "center", { 1, 1, 1, 1 }, 9, tagScale)
         end
@@ -1739,7 +1780,7 @@ return function(mod)
             local ppWidth = math.max(16, rect.w - (chipWidth > 0 and chipWidth + 14 or 8))
             local ppX = rect.x + rect.w - 4 - ppWidth
             local ppScale = math.min(1, ppWidth / math.max(1,
-                glyph_count(ppText, mod.ui.Font) * 6))
+                battle_text_width(ppText)))
             draw_battle_text(graphics, ppText, ppX, metaY, ppWidth,
                 "right", foreground, 9, ppScale)
         end
@@ -1778,8 +1819,11 @@ return function(mod)
                 or snapshot.prompt == "target" and dictionary.battle_target
                 or snapshot.prompt == "mimic" and dictionary.battle_mimic
                 or dictionary.battle_safari
+            local titleWidth = panel.w * 0.34
+            local titleScale = math.min(1, titleWidth
+                / math.max(1, battle_text_width(title or "ACTION")))
             draw_battle_text(graphics, title or "ACTION", panel.x + 7,
-                panel.y + 2, panel.w * 0.36, "left", { 1, 1, 1, 1 }, 12)
+                panel.y + 2, titleWidth, "left", { 1, 1, 1, 1 }, 12, titleScale)
             local notice = battle_ui.notice
             local noticeVisible = notice
                 and notice.prompt == snapshot.prompt
@@ -1793,8 +1837,8 @@ return function(mod)
                         .. tostring(tonumber(snapshot.safariBalls) or 0))
                 or (dictionary.battle_select or "A: SELECT")
             local helpWidth = panel.w * 0.56
-            local helpScale = noticeVisible and math.min(1,
-                helpWidth / math.max(1, glyph_count(help, mod.ui.Font) * 6)) or 1
+            local helpScale = math.min(1,
+                helpWidth / math.max(1, battle_text_width(help)))
             draw_battle_text(graphics, help, panel.x + panel.w * 0.40,
                 panel.y + 2, helpWidth, "right",
                 noticeVisible and { 1, 0.68, 0.42, 1 }
@@ -1806,7 +1850,7 @@ return function(mod)
                 if layout.showActorHp then
                     local actorWidth = panel.w * 0.60
                     local actorScale = math.min(1, actorWidth / math.max(1,
-                        glyph_count(actorLabel, mod.ui.Font) * 6))
+                        battle_text_width(actorLabel)))
                     draw_battle_text(graphics, actorLabel, panel.x + 7,
                         panel.y + 10, actorWidth, "left",
                         { 0.72, 0.77, 0.84, 1 }, 25, actorScale)
@@ -1816,7 +1860,7 @@ return function(mod)
                     )
                     local hpWidth = panel.w * 0.28
                     local hpScale = math.min(1, hpWidth / math.max(1,
-                        glyph_count(hpText, mod.ui.Font) * 6))
+                        battle_text_width(hpText)))
                     draw_battle_text(graphics, hpText,
                         panel.x + panel.w * 0.66, panel.y + 10,
                         hpWidth, "right", { 0.92, 0.94, 0.97, 1 },

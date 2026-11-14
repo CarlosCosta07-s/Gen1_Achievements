@@ -1,6 +1,6 @@
 {
   "en": {
-    "menu": "ACHIEVEMENTS",
+    "menu": "ACHV.",
     "title": "ACHIEVEMENTS",
     "progress": "PROGRESS",
     "all": "ALL",
@@ -46,7 +46,7 @@
     "battle_action_rejected": "ACTION NOT AVAILABLE"
   },
   "pt-BR": {
-    "menu": "CONQUISTAS",
+    "menu": "CONQ.",
     "title": "CONQUISTAS",
     "progress": "PROGRESSO",
     "all": "TODAS",
@@ -92,7 +92,7 @@
     "battle_action_rejected": "AÇÃO INDISPONÍVEL"
   },
   "es": {
-    "menu": "LOGROS",
+    "menu": "LOGR.",
     "title": "LOGROS",
     "progress": "PROGRESO",
     "all": "TODOS",

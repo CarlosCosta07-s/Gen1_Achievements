@@ -11,6 +11,17 @@ local function check(condition, message)
     if not condition then fail(message) end
 end
 
+local fake_graphics_color = { 1, 1, 1, 1 }
+love = love or {}
+love.graphics = love.graphics or {}
+love.graphics.getColor = function()
+    return fake_graphics_color[1], fake_graphics_color[2],
+        fake_graphics_color[3], fake_graphics_color[4]
+end
+love.graphics.setColor = function(r, g, b, a)
+    fake_graphics_color = { r, g, b, a or 1 }
+end
+
 local function split_tabs(line)
     local fields = {}
     local start_at = 1
@@ -158,13 +169,20 @@ local function make_environment(game_id, initial_cache, language)
     mod.ui = {
         Font = {
             draw = function(value, x, y)
+                local r, g, b, a = love.graphics.getColor()
                 drawn[#drawn + 1] = {
                     text = tostring(value),
                     x = x,
                     y = y,
+                    color = { r, g, b, a },
                 }
             end,
-            drawBox = function() end,
+            drawBox = function()
+                local r, g, b, a = love.graphics.getColor()
+                love.graphics.setColor(1, 1, 1, 1)
+                love.graphics.setColor(r, g, b, a)
+            end,
+            measure = function(value) return #tostring(value) * 8 end,
         },
         insertAfter = function(items, anchor, new_item)
             local output = {}
@@ -618,8 +636,9 @@ check(type(menu) == "table" and #menu == #base_menu + 1,
     "START menu hook did not preserve the vanilla rows and add one row")
 check(menu[1].label == "POKEDEX" and menu[2].label == "SAVE",
     "START menu hook changed the rows before SAVE")
-check(menu[3].label == "CONQUISTAS" and type(menu[3].onSelect) == "function",
-    "achievement entry was not inserted immediately after SAVE")
+check(menu[3].label == "CONQ." and #menu[3].label <= 5
+    and type(menu[3].onSelect) == "function",
+    "achievement entry did not use a compact label that fits the native START menu")
 check(menu[4].label == "OTHER MOD ENTRY"
     and menu[5].label == "OPTION" and menu[6].label == "QUIT",
     "achievement hook did not preserve another mod's menu entry")
@@ -641,6 +660,14 @@ end
 check(draw_contains("CONQUISTAS") and draw_contains("PROGRESSO")
     and draw_contains("< TODAS >"),
     "achievement screen did not draw its title, progress and default filter")
+for _, item in ipairs(ui_env.drawn) do
+    check(item.color and item.color[1] == 0 and item.color[2] == 0
+        and item.color[3] == 0 and item.color[4] == 1,
+        "achievement text was not rendered in black over the white screen")
+end
+local restored_r, restored_g, restored_b = love.graphics.getColor()
+check(restored_r == 1 and restored_g == 1 and restored_b == 1,
+    "achievement screen leaked its text color into the next screen")
 
 ui_env:press("right")
 screen:update(0)
@@ -999,9 +1026,10 @@ love.graphics = {
             kind = "text", value = tostring(value), x = x, y = y,
         }
     end,
-    printf = function(value, x, y, w, align)
+    printf = function(value, x, y, w, align, angle, sx, sy)
         battle_draw_calls[#battle_draw_calls + 1] = {
-            kind = "text", value = tostring(value), x = x, y = y, w = w, align = align,
+            kind = "text", value = tostring(value), x = x, y = y,
+            w = w, align = align, sx = sx or 1, sy = sy or 1,
         }
     end,
 }
@@ -1053,6 +1081,26 @@ for _, game_id in ipairs(battle_titles) do
     end
     check(#battle_draw_colors >= 3,
         game_id .. ": battle panel did not draw its version colors")
+    local panelFound, panelRight = false, nil
+    for _, call in ipairs(battle_draw_calls) do
+        if call.kind == "rectangle" and call.mode == "fill"
+            and call.x == 5 and call.h >= 40 and call.w >= 100 then
+            panelFound, panelRight = true, call.x + call.w
+            break
+        end
+    end
+    check(panelFound and panelRight <= 145,
+        game_id .. ": battle panel did not reserve the right-side touch safe area")
+    if game_id == "emerald" then
+        local helpScale
+        for _, call in ipairs(battle_draw_calls) do
+            if call.kind == "text" and call.value == "A: SELECIONAR" then
+                helpScale = call.sx
+            end
+        end
+        check(helpScale and helpScale < 1,
+            "long Portuguese battle help text was not scaled to fit its header")
+    end
     battle_accents[game_id] = battle_draw_colors[2]
 end
 local unique_accents = {}

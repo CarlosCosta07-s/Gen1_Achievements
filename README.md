@@ -6,9 +6,9 @@ Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRe
 
 ## Experiência dentro do jogo
 
-- Nova opção no menu START, posicionada antes de OPTIONS.
+- Nova opção compacta **CONQ.** no menu START, posicionada antes de OPTIONS; o título completo aparece dentro da tela.
 - Menu de batalha redesenhado pelo mod com referência estrutural em Pokémon Black/White e variação visual por título, incluindo os seletores especiais Mimic e Safari Zone de Gen 1.
-- Tela de conquistas controlada pelo D-pad e pelos botões A/B/START.
+- Tela de conquistas com contraste corrigido para fontes TTF e navegação pelo D-pad e botões A/B/START.
 - Filtros All / Unlocked / Locked, com instrução de navegação no rodapé.
 - Detalhes e descrições das conquistas.
 - Contadores de progresso para conquistas incrementais.

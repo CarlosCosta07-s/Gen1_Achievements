@@ -1,5 +1,5 @@
 # language	key	value
-en	menu	ACHIEVEMENTS
+en	menu	ACHV.
 en	title	ACHIEVEMENTS
 en	progress	PROGRESS
 en	all	ALL
@@ -16,7 +16,7 @@ en	details	A: DETAILS
 en	back	B: BACK
 en	filter	LEFT/RIGHT: FILTER
 en	notification	ACHIEVEMENT UNLOCKED
-pt-BR	menu	CONQUISTAS
+pt-BR	menu	CONQ.
 pt-BR	title	CONQUISTAS
 pt-BR	progress	PROGRESSO
 pt-BR	all	TODAS
@@ -33,7 +33,7 @@ pt-BR	details	A: DETALHES
 pt-BR	back	B: VOLTAR
 pt-BR	filter	ESQ/DIR: FILTRO
 pt-BR	notification	CONQUISTA DESBLOQUEADA
-es	menu	LOGROS
+es	menu	LOGR.
 es	title	LOGROS
 es	progress	PROGRESO
 es	all	TODOS

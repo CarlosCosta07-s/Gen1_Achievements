@@ -10,7 +10,7 @@ O menu de batalha é a única interface refeita integralmente pelo mod. A refer�
 - tipo do golpe e PP visíveis no próprio cartão;
 - seleção de alvos nos combates duplos que expõem essa escolha.
 
-A implementação usa primitivas vetoriais do próprio renderizador. Não inclui sprites, arte, fontes, sons ou outros recursos extraídos de Black/White. O desenho e os componentes são originais.
+A implementação usa primitivas vetoriais do próprio renderizador. Não inclui sprites, arte, fontes, sons ou outros recursos extraídos de Black/White. O desenho e os componentes são originais. O painel mantém uma margem de segurança à direita para não ficar sob o botão virtual B em telas móveis, e os rótulos do cabeçalho são dimensionados pelas métricas da fonte ativa.
 
 ## Variações por jogo
 

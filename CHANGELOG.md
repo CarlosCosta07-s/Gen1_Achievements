@@ -1,3 +1,11 @@
+## 0.5.15 — Correções de interface móvel e tela de conquistas
+
+- Corrigida a cor de texto da tela de conquistas: após desenhar o painel branco, o mod define texto preto e restaura o estado gráfico anterior; falhas de desenho são isoladas e registradas.
+- Encurtado o item do menu START para rótulos localizados que cabem na coluna nativa: ACHV., CONQ. e LOGR.; a tela mantém o título completo.
+- Reservada margem direita no menu de batalha para evitar sobreposição pelo controle virtual B em telas móveis.
+- Ajustado o dimensionamento dos títulos, instruções, nomes dos golpes, tipos e PP pelas métricas reais da fonte disponível.
+- Ampliado o runtime harness para verificar contraste, restauração da cor, rótulo compacto, margem segura e ajuste do texto em português.
+
 ## 0.5.14 — Destaque do alvo selecionado e release pública
 
 - Adicionado um contorno claro e uma faixa interna ao cartão de alvo atualmente percorrido pelo cursor.
