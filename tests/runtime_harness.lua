@@ -43,17 +43,12 @@ end
 local function load_rows()
     local rows = {}
     local contents = read_file("data/achievements.tsv")
-    local first_data_row = true
     for line in (contents .. "\n"):gmatch("(.-)\n") do
         line = line:gsub("\r$", "")
         if line ~= "" and line:sub(1, 1) ~= "#" then
-            if first_data_row then
-                first_data_row = false
-            else
-                local fields = split_tabs(line)
-                check(#fields == 15, "catalog row must contain 15 fields")
-                rows[#rows + 1] = fields
-            end
+            local fields = split_tabs(line)
+            check(#fields == 15, "catalog row must contain 15 fields")
+            rows[#rows + 1] = fields
         end
     end
     return rows
