@@ -30,7 +30,14 @@
     "battle_no_moves": "NO USABLE MOVES",
     "battle_pp": "PP",
     "battle_item": "ITEM",
-    "battle_pack": "PACK"
+    "battle_pack": "PACK",
+    "battle_mimic": "MIMIC",
+    "battle_safari": "SAFARI",
+    "battle_safari_ball": "BALL",
+    "battle_safari_bait": "BAIT",
+    "battle_safari_rock": "ROCK",
+    "battle_safari_balls": "BALLS",
+    "battle_no_mimic_moves": "NO MOVES TO COPY"
   },
   "pt-BR": {
     "menu": "CONQUISTAS",
@@ -63,7 +70,14 @@
     "battle_no_moves": "SEM GOLPES USÁVEIS",
     "battle_pp": "PP",
     "battle_item": "ITEM",
-    "battle_pack": "BOLSA"
+    "battle_pack": "BOLSA",
+    "battle_mimic": "MÍMICA",
+    "battle_safari": "SAFÁRI",
+    "battle_safari_ball": "BOLA",
+    "battle_safari_bait": "ISCA",
+    "battle_safari_rock": "PEDRA",
+    "battle_safari_balls": "BOLAS",
+    "battle_no_mimic_moves": "NENHUM GOLPE PARA COPIAR"
   },
   "es": {
     "menu": "LOGROS",
@@ -96,6 +110,13 @@
     "battle_no_moves": "SIN MOVIMIENTOS",
     "battle_pp": "PP",
     "battle_item": "OBJETO",
-    "battle_pack": "MOCHILA"
+    "battle_pack": "MOCHILA",
+    "battle_mimic": "IMITACIÓN",
+    "battle_safari": "SAFARI",
+    "battle_safari_ball": "BOLA",
+    "battle_safari_bait": "CEBO",
+    "battle_safari_rock": "ROCA",
+    "battle_safari_balls": "BOLAS",
+    "battle_no_mimic_moves": "NINGÚN MOVIMIENTO PARA COPIAR"
   }
 }
