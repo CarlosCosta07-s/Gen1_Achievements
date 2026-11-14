@@ -1552,4 +1552,4 @@ local visible = command_env:run_hook(
 check(visible == true,
     "native battle UI was hidden during a non-interactive battle phase")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, Gen 1/2/3 battle contracts, Mimic/Safari intents, native party/message transitions, PP normalization, original move slots, sparse Gen 3 targets, touch UI, all 11 games and 3 locales verified."):format(#rows))
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, Gen 1/2/3 battle contracts, Mimic/Safari intents, native party/message transitions, PP normalization, original move slots, sparse targets, double-battle actors/roles, touch UI, all 11 games and 3 locales verified."):format(#rows))
