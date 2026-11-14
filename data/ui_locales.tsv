@@ -50,3 +50,39 @@ es	details	A: DETALLES
 es	back	B: VOLVER
 es	filter	IZQ/DER: FILTRO
 es	notification	LOGRO DESBLOQUEADO
+en	battle_action	ACTION
+en	battle_fight	FIGHT
+en	battle_bag	BAG
+en	battle_pokemon	POKEMON
+en	battle_run	RUN
+en	battle_moves	MOVES
+en	battle_target	TARGET
+en	battle_choose	CHOOSE
+en	battle_select	A: SELECT
+en	battle_back	B: BACK
+en	battle_no_moves	NO USABLE MOVES
+en	battle_pp	PP
+pt-BR	battle_action	AÇÃO
+pt-BR	battle_fight	LUTAR
+pt-BR	battle_bag	BOLSA
+pt-BR	battle_pokemon	POKEMON
+pt-BR	battle_run	FUGIR
+pt-BR	battle_moves	GOLPES
+pt-BR	battle_target	ALVO
+pt-BR	battle_choose	ESCOLHER
+pt-BR	battle_select	A: SELECIONAR
+pt-BR	battle_back	B: VOLTAR
+pt-BR	battle_no_moves	SEM GOLPES USÁVEIS
+pt-BR	battle_pp	PP
+es	battle_action	ACCIÓN
+es	battle_fight	LUCHAR
+es	battle_bag	BOLSA
+es	battle_pokemon	POKEMON
+es	battle_run	HUIR
+es	battle_moves	MOVIMIENTOS
+es	battle_target	OBJETIVO
+es	battle_choose	ELEGIR
+es	battle_select	A: ELEGIR
+es	battle_back	B: VOLVER
+es	battle_no_moves	SIN MOVIMIENTOS
+es	battle_pp	PP
