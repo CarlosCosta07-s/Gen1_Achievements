@@ -1173,6 +1173,25 @@ local outside_consumed = pointer_env:run_hook(
 check(outside_consumed == false,
     "battle menu consumed a pointer press outside its own panel")
 
+-- Pointer input is in window units; it must be transformed back to the
+-- logical game layout when the game viewport is enlarged and offset.
+local scaled_env = make_environment("red")
+scaled_env:set_battle_snapshot(move_snapshot)
+local scaled_viewport = {
+    width = 640, height = 576,
+    gameX = 40, gameY = 20,
+    gameWidth = 320, gameHeight = 288, scale = 2,
+}
+scaled_env:run_hook("render.hud", nil, scaled_env.game, scaled_viewport)
+local scaled_back_consumed = scaled_env:run_hook(
+    "input.pointer", false, scaled_env.game,
+    { phase = "pressed", source = "mouse", id = 4, gameX = 260, gameY = 188 }
+)
+check(scaled_back_consumed == true
+    and #scaled_env:submitted() == 1
+    and scaled_env:submitted()[1].kind == "back",
+    "scaled/offset pointer coordinates did not hit the logical B: BACK target")
+
 -- Android/iOS virtual controls inject buttons through Input directly.
 -- The input.step bridge must route those touch edges to our menu and mask
 -- the same GB buttons from the still-running native battle controller.
