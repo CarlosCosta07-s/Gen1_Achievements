@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "supported_languages": ["en", "pt-BR", "es"],
+  "games": {
+    "red": [],
+    "blue": [],
+    "yellow": [],
+    "gold": [],
+    "silver": [],
+    "crystal": [],
+    "firered": [],
+    "leafgreen": [],
+    "ruby": [],
+    "sapphire": [],
+    "emerald": []
+  }
+}

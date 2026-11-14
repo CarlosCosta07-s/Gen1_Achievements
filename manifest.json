@@ -1,0 +1,22 @@
+{
+  "id": "gen1_achievements",
+  "name": "Gen1 Achievements",
+  "version": "0.1.0",
+  "api": 3,
+  "entry": "main.lua",
+  "profile": "content",
+  "category": "TOOL",
+  "games": [
+    "red",
+    "blue",
+    "yellow",
+    "gold",
+    "silver",
+    "crystal",
+    "firered",
+    "leafgreen",
+    "ruby",
+    "sapphire",
+    "emerald"
+  ]
+}

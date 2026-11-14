@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "games": [
+    {
+      "id": "red",
+      "generation": 1,
+      "order": 1,
+      "title": "Pokémon Red Version"
+    },
+    {
+      "id": "blue",
+      "generation": 1,
+      "order": 2,
+      "title": "Pokémon Blue Version"
+    },
+    {
+      "id": "yellow",
+      "generation": 1,
+      "order": 3,
+      "title": "Pokémon Yellow Version"
+    },
+    {
+      "id": "gold",
+      "generation": 2,
+      "order": 4,
+      "title": "Pokémon Gold Version"
+    },
+    {
+      "id": "silver",
+      "generation": 2,
+      "order": 5,
+      "title": "Pokémon Silver Version"
+    },
+    {
+      "id": "crystal",
+      "generation": 2,
+      "order": 6,
+      "title": "Pokémon Crystal Version"
+    },
+    {
+      "id": "firered",
+      "generation": 3,
+      "order": 7,
+      "title": "Pokémon FireRed Version"
+    },
+    {
+      "id": "leafgreen",
+      "generation": 3,
+      "order": 8,
+      "title": "Pokémon LeafGreen Version"
+    },
+    {
+      "id": "ruby",
+      "generation": 3,
+      "order": 9,
+      "title": "Pokémon Ruby Version"
+    },
+    {
+      "id": "sapphire",
+      "generation": 3,
+      "order": 10,
+      "title": "Pokémon Sapphire Version"
+    },
+    {
+      "id": "emerald",
+      "generation": 3,
+      "order": 11,
+      "title": "Pokémon Emerald Version"
+    }
+  ]
+}

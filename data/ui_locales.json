@@ -1,0 +1,38 @@
+{
+  "en": {
+    "extras": "Extras",
+    "achievements": "Achievements",
+    "language": "Achievement language",
+    "unlocked": "Unlocked",
+    "locked": "Locked",
+    "progress": "Progress",
+    "completion": "Completion",
+    "hidden": "Hidden achievement",
+    "empty_title": "No achievements available yet",
+    "empty_description": "The achievement list for this game is being prepared."
+  },
+  "pt-BR": {
+    "extras": "Extras",
+    "achievements": "Conquistas",
+    "language": "Idioma das conquistas",
+    "unlocked": "Desbloqueadas",
+    "locked": "Bloqueadas",
+    "progress": "Progresso",
+    "completion": "Conclusão",
+    "hidden": "Conquista secreta",
+    "empty_title": "Ainda não há conquistas disponíveis",
+    "empty_description": "A lista de conquistas deste jogo está sendo preparada."
+  },
+  "es": {
+    "extras": "Extras",
+    "achievements": "Logros",
+    "language": "Idioma de los logros",
+    "unlocked": "Desbloqueados",
+    "locked": "Bloqueados",
+    "progress": "Progreso",
+    "completion": "Completado",
+    "hidden": "Logro oculto",
+    "empty_title": "Todavía no hay logros disponibles",
+    "empty_description": "La lista de logros de este juego se está preparando."
+  }
+}
