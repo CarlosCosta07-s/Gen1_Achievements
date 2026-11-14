@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0 — Menu de batalha redesenhado
+
+- Criado pelo mod um novo menu de batalha com referência de composição em Pokémon Black/White: bandeja escura, cartões claros, cores de tipo e indicadores de PP.
+- Adicionadas onze variações de acento cromático e acabamento, uma para cada jogo, sem copiar assets, fontes ou sprites.
+- Implementados comandos validados de Fight, Bag, Pokémon, Run, seleção de golpes, alvos em batalhas duplas e retorno com B via `mod.battle:snapshot()`/`submit()`.
+- Adicionados controles por teclado, gamepad e toque, capturados somente nas fases controláveis do menu substituto.
+- Mantidos nativos os turnos, regras, golpes, itens, trocas, mensagens, mochila e equipe.
+- Reorganizadas as ações comuns dos submenus da equipe sem deslocar movimentos de campo ou entradas de outros mods.
+- Ampliados os testes do harness para desenho, cores, comandos, PP, alvos, retorno, toque e submenus.
+
 ## 0.4.5 — Organização das opções dentro do jogo
 
 - Mantidas as configurações do Gen1 Achievements no gerenciador MODS dentro do jogo; a opção de idioma não é duplicada nas opções gerais.
