@@ -24,3 +24,5 @@ jobs:
           sudo apt-get install -y luajit
       - name: Check Lua syntax
         run: luajit -b main.lua /tmp/gen1-achievements.luac
+      - name: Execute runtime harness
+        run: luajit tests/runtime_harness.lua
