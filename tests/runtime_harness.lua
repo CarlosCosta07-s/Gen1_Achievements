@@ -1121,15 +1121,16 @@ for _, call in ipairs(battle_draw_calls) do
 end
 check(table.concat(empty_text, "\n"):find("SEM GOLPES USÁVEIS", 1, true) ~= nil,
     "empty move menu did not show the localized empty state")
--- Gen 3 keeps the original move slot even when the snapshot list is compacted.
--- Missing PP is unknown, not zero, and must remain selectable.
+-- Gen 3 compacts the visible move list but preserves each native slot.
+-- The public UnifiedBattle facade normalizes absent PP to zero before the
+-- mod receives the snapshot, so zero is displayed and disabled consistently.
 local gen3_move_env = make_environment("emerald")
 local gen3_move_snapshot = {
     prompt = "moves", kind = "wild", revision = 1,
     player = {}, enemy = {}, party = {}, items = {},
     moves = {
         { id = "HIDDEN_POWER", name = "HIDDEN POWER", type = "DARK",
-            slot = 3, pp = nil, maxPp = nil },
+            slot = 3, pp = 10, maxPp = 10 },
     },
 }
 gen3_move_env:set_battle_snapshot(gen3_move_snapshot)
@@ -1140,15 +1141,39 @@ for _, call in ipairs(battle_draw_calls) do
     if call.kind == "text" then gen3_move_text[#gen3_move_text + 1] = call.value end
 end
 local gen3_move_rendered = table.concat(gen3_move_text, "\n")
-check(gen3_move_rendered:find("PP --/--", 1, true) ~= nil,
-    "missing Gen 3 PP was displayed as zero instead of unknown")
+check(gen3_move_rendered:find("PP 10/10", 1, true) ~= nil,
+    "Gen 3 move PP was not rendered from the normalized snapshot")
 gen3_move_env:run_hook(
     "input.key", nil, gen3_move_env.game, { phase = "pressed", key = "z" }
 )
 check(#gen3_move_env:submitted() == 1
     and gen3_move_env:submitted()[1].kind == "move"
     and gen3_move_env:submitted()[1].slot == 3,
-    "Gen 3 move with unknown PP was disabled or submitted with the visual index")
+    "Gen 3 move was submitted using its visual index instead of its native slot")
+
+-- A missing PP from the facade is represented as zero and must be blocked.
+local normalized_pp_env = make_environment("emerald")
+normalized_pp_env:set_battle_snapshot({
+    prompt = "moves", kind = "wild", revision = 1,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "UNKNOWN_PP", name = "UNKNOWN PP", type = "NORMAL",
+            slot = 2, pp = 0, maxPp = 0 },
+    },
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+normalized_pp_env:run_hook("render.hud", nil, normalized_pp_env.game, base_viewport)
+local normalized_pp_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then normalized_pp_text[#normalized_pp_text + 1] = call.value end
+end
+check(table.concat(normalized_pp_text, "\n"):find("PP 0/0", 1, true) ~= nil,
+    "normalized missing PP was not presented as zero")
+normalized_pp_env:run_hook(
+    "input.key", nil, normalized_pp_env.game, { phase = "pressed", key = "z" }
+)
+check(#normalized_pp_env:submitted() == 0,
+    "a move with normalized zero PP was incorrectly enabled")
 
 -- Known zero PP remains disabled and cannot be submitted.
 local exhausted_env = make_environment("emerald")
@@ -1328,6 +1353,120 @@ check(back_consumed == true
     and back_env:submitted()[1].kind == "back",
     "touching the B: BACK header did not return from the move selector")
 
+-- Gen 1's public battle facade exposes Mimic as its own validated
+-- selection phase. The initial native mimic cursor is preserved.
+local mimic_env = make_environment("red")
+mimic_env:set_battle_snapshot({
+    prompt = "mimic", kind = "wild", revision = 21, mimicIndex = 2,
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    mimicMoves = {
+        { index = 1, slot = 1, id = "TACKLE", name = "TACKLE" },
+        { index = 2, slot = 3, id = "THUNDERBOLT", name = "THUNDERBOLT" },
+    },
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+mimic_env:run_hook("render.hud", nil, mimic_env.game, base_viewport)
+local mimic_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then mimic_text[#mimic_text + 1] = call.value end
+end
+local mimic_rendered = table.concat(mimic_text, "\n")
+check(mimic_rendered:find("MÍMICA", 1, true) ~= nil
+    and mimic_rendered:find("THUNDERBOLT", 1, true) ~= nil,
+    "Mimic selector did not render its localized heading and move choices")
+check(mimic_env:run_hook("battle.bottom_ui_visible", true, {}) == false,
+    "native battle panel was not replaced during Mimic selection")
+mimic_env:run_hook(
+    "input.key", nil, mimic_env.game, { phase = "pressed", key = "z" }
+)
+check(#mimic_env:submitted() == 1
+    and mimic_env:submitted()[1].kind == "mimic"
+    and mimic_env:submitted()[1].index == 2
+    and mimic_env:submitted()[1].revision == 21,
+    "Mimic selection did not submit its native move-list index")
+
+-- Safari is a separate Gen 1 action menu, not the regular Fight/Bag menu.
+local safari_env = make_environment("red")
+safari_env:set_battle_snapshot({
+    prompt = "safari", kind = "safari", revision = 22, safariBalls = 30,
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+safari_env:run_hook("render.hud", nil, safari_env.game, base_viewport)
+local safari_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then safari_text[#safari_text + 1] = call.value end
+end
+local safari_rendered = table.concat(safari_text, "\n")
+check(safari_rendered:find("SAFÁRI", 1, true) ~= nil
+    and safari_rendered:find("BOLA", 1, true) ~= nil
+    and safari_rendered:find("ISCA", 1, true) ~= nil
+    and safari_rendered:find("BOLAS: 30", 1, true) ~= nil,
+    "Safari menu did not render its action labels or remaining ball count")
+check(safari_env:run_hook("battle.bottom_ui_visible", true, {}) == false,
+    "native battle panel was not replaced during Safari action selection")
+safari_env:run_hook(
+    "input.key", nil, safari_env.game, { phase = "pressed", key = "right" }
+)
+safari_env:run_hook(
+    "input.key", nil, safari_env.game, { phase = "pressed", key = "z" }
+)
+check(#safari_env:submitted() == 1
+    and safari_env:submitted()[1].kind == "safari"
+    and safari_env:submitted()[1].action == "bait"
+    and safari_env:submitted()[1].revision == 22,
+    "Safari action selection did not preserve the native bait intent")
+
+local no_balls_env = make_environment("red")
+no_balls_env:set_battle_snapshot({
+    prompt = "safari", kind = "safari", revision = 23, safariBalls = 0,
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+})
+no_balls_env:run_hook(
+    "input.key", nil, no_balls_env.game, { phase = "pressed", key = "z" }
+)
+check(#no_balls_env:submitted() == 0,
+    "Safari actions remained selectable after the last ball was consumed")
+
+-- Forced party screens and message/advance phases stay entirely native.
+-- Leaving the custom menu must also restore the original touch input methods.
+local phase_env = make_environment("red")
+local phase_original_was_pressed = phase_env.game.input.wasPressed
+phase_env:set_battle_snapshot(menu_snapshot)
+phase_env:run_hook("input.step", nil, phase_env.game, 1 / 60)
+check(phase_env.game.input.wasPressed ~= phase_original_was_pressed,
+    "touch bridge was not installed for the custom command menu")
+for _, prompt in ipairs({ "party", "advance", "locked" }) do
+    phase_env:set_battle_snapshot({
+        prompt = prompt, kind = "wild", revision = 24,
+        player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    })
+    phase_env:run_hook("input.step", nil, phase_env.game, 1 / 60)
+    check(phase_env.game.input.wasPressed == phase_original_was_pressed,
+        prompt .. ": native touch input was not restored after leaving the custom menu")
+    check(phase_env:run_hook("battle.bottom_ui_visible", true, {}) == true,
+        prompt .. ": native battle panel was hidden outside a custom prompt")
+    check(phase_env:run_hook(
+        "input.key", "native-key", phase_env.game,
+        { phase = "pressed", key = "z" }
+    ) == "native-key", prompt .. ": keyboard input was not forwarded to the native state")
+    check(phase_env:run_hook(
+        "input.gamepad", "native-pad", phase_env.game,
+        { phase = "pressed", button = "a" }
+    ) == "native-pad", prompt .. ": gamepad input was not forwarded to the native state")
+end
+local link_env = make_environment("red")
+link_env:set_battle_snapshot({
+    prompt = "menu", kind = "link", revision = 25,
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+})
+check(link_env:run_hook("battle.bottom_ui_visible", true, {}) == true
+    and link_env:run_hook(
+        "input.key", "link-native", link_env.game,
+        { phase = "pressed", key = "z" }
+    ) == "link-native",
+    "link battle was captured by the replacement single-player menu")
+
 -- The bottom battle layer is hidden only while the replacement UI is active.
 local hidden = command_env:run_hook(
     "battle.bottom_ui_visible", true, {}
@@ -1343,4 +1482,4 @@ local visible = command_env:run_hook(
 check(visible == true,
     "native battle UI was hidden during a non-interactive battle phase")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, Gen 1/2/3 battle contracts, original move slots, sparse Gen 3 targets, touch UI, all 11 games, 3 locales, secret visibility and in-game OPTIONS row ordering verified."):format(#rows))
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, Gen 1/2/3 battle contracts, Mimic/Safari intents, native party/message transitions, PP normalization, original move slots, sparse Gen 3 targets, touch UI, all 11 games and 3 locales verified."):format(#rows))
