@@ -1363,6 +1363,119 @@ revision_race_env:run_hook(
 check(#revision_race_env:submitted() == 0,
     "a target command was replayed against a newer revision of the same prompt")
 
+-- A native target rejection is surfaced in the battle panel rather than
+-- disappearing into the debug log. The facade's exact self-target rejection
+-- is localized for every supported language, and expires on the game update.
+local target_notice_expectations = {
+    en = "CANNOT TARGET USER",
+    ["pt-BR"] = "NÃO PODE MIRAR EM SI",
+    es = "NO PUEDE SER OBJETIVO",
+}
+local target_notice_env
+for language, expected in pairs(target_notice_expectations) do
+    local env = make_environment("emerald", nil, language)
+    if language == "pt-BR" then target_notice_env = env end
+    env:set_battle_snapshot({
+        prompt = "target", kind = "trainer", revision = 35,
+        active = 0, target = 0, targets = { 0, 1 }, double = true,
+        player = { name = "PIKACHU" },
+        battlers = {
+            { id = 0, side = "player", name = "PIKACHU" },
+            { id = 1, side = "enemy", name = "GASTLY" },
+        },
+        enemy = {}, party = {}, moves = {}, items = {},
+    })
+    env.mod.battle.submit = function()
+        return nil, "that move cannot target its user"
+    end
+    env:run_hook(
+        "input.key", nil, env.game, { phase = "pressed", key = "z" }
+    )
+    check(#env:submitted() == 0,
+        language .. ": rejected self-target intent was recorded as accepted")
+    for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+    env:run_hook("render.hud", nil, env.game, base_viewport)
+    local drawn = {}
+    for _, call in ipairs(battle_draw_calls) do
+        if call.kind == "text" then drawn[#drawn + 1] = call.value end
+    end
+    check(table.concat(drawn, "\n"):find(expected, 1, true) ~= nil,
+        language .. ": native self-target rejection was not shown in the battle panel")
+end
+check(target_notice_env ~= nil, "pt-BR target rejection fixture was not created")
+target_notice_env:run_hook("core.update", nil, target_notice_env.game, 3.0)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+target_notice_env:run_hook(
+    "render.hud", nil, target_notice_env.game, base_viewport
+)
+local expired_notice_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then expired_notice_text[#expired_notice_text + 1] = call.value end
+end
+check(table.concat(expired_notice_text, "\n"):find("NÃO PODE MIRAR EM SI", 1, true) == nil
+    and table.concat(expired_notice_text, "\n"):find("B: VOLTAR", 1, true) ~= nil,
+    "battle target rejection notice did not expire back to the normal control hint")
+
+-- A generic API rejection still gets useful localized feedback.
+local generic_rejection_env = make_environment("emerald")
+generic_rejection_env:set_battle_snapshot({
+    prompt = "target", kind = "trainer", revision = 36,
+    active = 0, target = 1, targets = { 0, 1 },
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 1, side = "enemy", name = "GASTLY" },
+    },
+})
+generic_rejection_env.mod.battle.submit = function()
+    return nil, "synthetic rejection"
+end
+generic_rejection_env:run_hook(
+    "input.key", nil, generic_rejection_env.game, { phase = "pressed", key = "z" }
+)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+generic_rejection_env:run_hook(
+    "render.hud", nil, generic_rejection_env.game, base_viewport
+)
+local generic_notice_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then generic_notice_text[#generic_notice_text + 1] = call.value end
+end
+check(table.concat(generic_notice_text, "\n"):find("AÇÃO INDISPONÍVEL", 1, true) ~= nil,
+    "generic battle API rejection did not produce a localized notice")
+
+-- A rejected self target does not lock the panel: the player can move to an
+-- allowed battler and continue using the same target prompt.
+local retry_target_env = make_environment("emerald")
+retry_target_env:set_battle_snapshot({
+    prompt = "target", kind = "trainer", revision = 37,
+    active = 0, target = 0, targets = { 0, 1 }, double = true,
+    player = { name = "PIKACHU" },
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU" },
+        { id = 1, side = "enemy", name = "GASTLY" },
+    },
+    enemy = {}, party = {}, moves = {}, items = {},
+})
+retry_target_env.mod.battle.submit = function(_, intent)
+    if intent.target == 0 then return nil, "that move cannot target its user" end
+    retry_target_env.submitted_intents[#retry_target_env.submitted_intents + 1] = intent
+    return true
+end
+retry_target_env:run_hook(
+    "input.key", nil, retry_target_env.game, { phase = "pressed", key = "z" }
+)
+retry_target_env:run_hook(
+    "input.key", nil, retry_target_env.game, { phase = "pressed", key = "right" }
+)
+retry_target_env:run_hook(
+    "input.key", nil, retry_target_env.game, { phase = "pressed", key = "z" }
+)
+check(#retry_target_env:submitted() == 1
+    and retry_target_env:submitted()[1].kind == "target"
+    and retry_target_env:submitted()[1].target == 1,
+    "a rejected self-target choice prevented selecting a valid battler")
+
 -- The active actor banner follows the engine when command control moves to
 -- the other player slot; it is not cached from the previous turn.
 double_target_env:set_battle_snapshot({
