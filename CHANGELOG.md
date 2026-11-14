@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.5 — Organização das opções dentro do jogo
+
+- Mantidas as configurações do Gen1 Achievements no gerenciador MODS dentro do jogo; a opção de idioma não é duplicada nas opções gerais.
+- Adicionado o hook `ui.options.rows` para ordenar opções nativas dentro das categorias existentes nos onze jogos.
+- Organizadas as opções de áudio, vídeo, gráficos, batalha, velocidade e extras sem alterar aparência, renderização ou controles.
+- Preservadas posições e referências de opções desconhecidas e de outros mods.
+- Removida a especificação da página global Extras → Conquistas, descartada como escopo do projeto.
+- Adicionados testes do hook de opções, da preservação de outras linhas e da configuração do mod no gerenciador interno.
+
 ## 0.4.4 — Localização e visibilidade das conquistas
 
 - Exibida a orientação de navegação dos filtros no rodapé da lista, nos três idiomas, sem ocupar as linhas dos objetivos.
