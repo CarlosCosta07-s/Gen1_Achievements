@@ -31,13 +31,15 @@ O snapshot é lido por `mod.battle:snapshot()`. As escolhas são enviadas por `m
 - `menu` para Fight, Item/Pack/Bag, Pokémon e Run;
 - `move` para selecionar o slot nativo do golpe. Gen 1 expõe `curMoves`, Gen 2 expõe `moves`, e Gen 3 compacta a lista visível mas preserva o número real em `slot`;
 - `target` apenas na API da terceira geração, que expõe IDs de battler de 0 a 3. Esses IDs podem ser esparsos; a seleção usa o ID nativo, não o índice da grade;
-- `back` para retornar da seleção de golpe/alvo.
+- `mimic` para escolher, no Gen 1, um dos movimentos que o motor autorizou copiar;
+- `safari` para executar Ball, Bait, Rock ou Run no menu próprio da Safari Zone;
+- `back` para retornar da seleção normal de golpe/alvo.
 
-A PP é tratada de acordo com o contrato do adaptador: valor numérico zero desabilita o golpe; ausência de PP representa dado desconhecido e aparece como `--/--`, sem bloquear uma escolha que o próprio adaptador permite. O campo `disabled` continua sendo respeitado quando fornecido.
+A fachada pública `UnifiedBattle` normaliza PP ausente para zero antes de entregar o snapshot ao mod; por isso, o cartão apresenta `PP 0/0` e bloqueia a seleção. O campo `disabled` também é respeitado quando fornecido.
 
 Os hooks `input.key`, `input.gamepad` e `input.pointer` capturam teclado, controle físico e toque direto somente quando uma fase substituível está ativa. `input.step` encaminha as entradas do overlay virtual Android/iOS antes do processamento nativo. `overlayPressed` registra também os toques curtos entre passos; A/B/D-pad são mascarados apenas quando pertencem ao overlay e apenas no passo que consome a borda, preservando teclado, gamepad e outras fontes. O ponteiro é convertido de coordenadas da janela para o espaço lógico do painel, considerando origem e escala do viewport. O hook `render.hud` desenha o painel sobre a parte inferior do frame. `battle.bottom_ui_visible` esconde a camada nativa nas versões em que a superfície está disponível; se não estiver, o painel vetorial cobre a região inferior. A HUD superior continua nativa.
 
-O motor permanece responsável por processar turnos, golpes, PP, alvos, itens, captura, trocas, animações e mensagens. As escolhas de Bag e Pokémon voltam aos fluxos originais do jogo. Nenhum HP, PP, save ou estado de batalha é escrito diretamente pelo mod.
+O motor permanece responsável por processar turnos, golpes, PP, alvos, itens, captura, trocas, animações e mensagens. As escolhas de Bag e Pokémon voltam aos fluxos originais do jogo. A seleção forçada de equipe, o avanço de mensagens, as fases bloqueadas, batalhas Link e tutoriais não são capturados pelo painel; ao sair de uma fase substituída, a ponte de toque é restaurada. Nenhum HP, PP, save ou estado de batalha é escrito diretamente pelo mod.
 
 As onze variações cromáticas e suas diferenças de acabamento estão em `BATTLE_THEMES` no `main.lua`; a especificação funcional e visual fica em `docs/BATTLE_UI.md`.
 
