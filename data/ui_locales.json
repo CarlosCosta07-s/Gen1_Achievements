@@ -41,7 +41,9 @@
     "battle_active": "ACTIVE",
     "battle_target_active": "ACTIVE",
     "battle_target_ally": "ALLY",
-    "battle_target_foe": "FOE"
+    "battle_target_foe": "FOE",
+    "battle_target_self_blocked": "CANNOT TARGET USER",
+    "battle_action_rejected": "ACTION NOT AVAILABLE"
   },
   "pt-BR": {
     "menu": "CONQUISTAS",
@@ -85,7 +87,9 @@
     "battle_active": "ATIVO",
     "battle_target_active": "ATIVO",
     "battle_target_ally": "ALIADO",
-    "battle_target_foe": "INIMIGO"
+    "battle_target_foe": "INIMIGO",
+    "battle_target_self_blocked": "NÃO PODE MIRAR EM SI",
+    "battle_action_rejected": "AÇÃO INDISPONÍVEL"
   },
   "es": {
     "menu": "LOGROS",
@@ -129,6 +133,8 @@
     "battle_active": "ACTIVO",
     "battle_target_active": "ACTIVO",
     "battle_target_ally": "ALIADO",
-    "battle_target_foe": "RIVAL"
+    "battle_target_foe": "RIVAL",
+    "battle_target_self_blocked": "NO PUEDE SER OBJETIVO",
+    "battle_action_rejected": "ACCIÓN NO DISPONIBLE"
   }
 }
