@@ -27,7 +27,7 @@ O mod reorganiza as opções nativas e as ações comuns dos submenus da equipe,
 
 A nova interface usa uma bandeja escura e cartões claros, com hierarquia inspirada em Pokémon Black/White. Cada jogo usa um acento cromático e acabamento próprios: Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire e Emerald. A seleção mostra nome, tipo e PP dos golpes e oferece alvos nas batalhas duplas quando a API fornece esses dados.
 
-O mod não inclui sprites, fontes ou recursos extraídos de Black/White. Ele envia escolhas semânticas para o motor por meio da API pública de batalha. A mochila, a equipe, a execução dos golpes e as regras do combate continuam nativas. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md).
+O mod não inclui sprites, fontes ou recursos extraídos de Black/White. Ele envia escolhas semânticas para o motor por meio da API pública de batalha. A navegação funciona com teclado, gamepad, controles virtuais Android/iOS e toque direto. A mochila, a equipe, a execução dos golpes e as regras do combate continuam nativas. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md).
 
 ## Jogos e perfis
 
