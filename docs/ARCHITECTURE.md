@@ -23,6 +23,22 @@ A tela implementa:
 
 O desbloqueio é disparado por eventos oficiais. A linha de catálogo define o evento e sua condição. O sistema só se inscreve em eventos que a versão em execução declara suportar por `mod:supports("events", name)`. O catálogo usa eventos reais de captura, evolução, batalha, mudança de flag, entrada em mapa, reprodução, amizade, Pokérus e mecânicas exclusivas de Johto.
 
+## Menu de batalha redesenhado
+
+O menu de batalha é a única interface refeita integralmente pelo mod. O desenho original usa uma bandeja escura, cartões claros, destaque cromático por título e cartões de golpe com nome, tipo e PP. A estrutura de composição toma Pokémon Black/White como referência, sem reutilizar seus assets.
+
+O snapshot é lido por `mod.battle:snapshot()`. As escolhas são enviadas por `mod.battle:submit()` com `revision` e ID crescente de intenção:
+- `menu` para Fight, Bag, Pokémon e Run;
+- `move` para selecionar um dos quatro espaços de golpe;
+- `target` para selecionar um battler quando a terceira geração expõe alvos;
+- `back` para retornar da seleção de golpe/alvo.
+
+Os hooks `input.key`, `input.gamepad` e `input.pointer` capturam teclado, controle e ponteiro somente quando uma fase substituível está ativa. O hook `render.hud` desenha o painel sobre a parte inferior do frame. `battle.bottom_ui_visible` esconde a camada nativa nas versões em que a superfície está disponível; se não estiver, o painel vetorial cobre a região inferior. A HUD superior continua nativa.
+
+O motor permanece responsável por processar turnos, golpes, PP, alvos, itens, captura, trocas, animações e mensagens. As escolhas de Bag e Pokémon voltam aos fluxos originais do jogo. Nenhum HP, PP, save ou estado de batalha é escrito diretamente pelo mod.
+
+As onze variações cromáticas e suas diferenças de acabamento estão em `BATTLE_THEMES` no `main.lua`; a especificação funcional e visual fica em `docs/BATTLE_UI.md`.
+
 ## Fonte de dados
 
 `data/achievements.tsv` é a fonte de dados executada pelo mod. Colunas (15, separadas por TAB):
