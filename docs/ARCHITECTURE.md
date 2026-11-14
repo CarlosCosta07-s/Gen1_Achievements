@@ -33,7 +33,7 @@ O snapshot é lido por `mod.battle:snapshot()`. As escolhas são enviadas por `m
 - `target` para selecionar um battler quando a terceira geração expõe alvos;
 - `back` para retornar da seleção de golpe/alvo.
 
-Os hooks `input.key`, `input.gamepad` e `input.pointer` capturam teclado, controle e ponteiro somente quando uma fase substituível está ativa. O hook `render.hud` desenha o painel sobre a parte inferior do frame. `battle.bottom_ui_visible` esconde a camada nativa nas versões em que a superfície está disponível; se não estiver, o painel vetorial cobre a região inferior. A HUD superior continua nativa.
+Os hooks `input.key`, `input.gamepad` e `input.pointer` capturam teclado, controle físico e toque direto somente quando uma fase substituível está ativa. `input.step` encaminha as entradas do overlay virtual Android/iOS antes do processamento nativo e mascara A/B/D-pad durante a seleção substituta para impedir comandos duplicados. O hook `render.hud` desenha o painel sobre a parte inferior do frame. `battle.bottom_ui_visible` esconde a camada nativa nas versões em que a superfície está disponível; se não estiver, o painel vetorial cobre a região inferior. A HUD superior continua nativa.
 
 O motor permanece responsável por processar turnos, golpes, PP, alvos, itens, captura, trocas, animações e mensagens. As escolhas de Bag e Pokémon voltam aos fluxos originais do jogo. Nenhum HP, PP, save ou estado de batalha é escrito diretamente pelo mod.
 
