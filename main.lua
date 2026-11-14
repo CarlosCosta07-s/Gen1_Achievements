@@ -660,6 +660,7 @@ return function(mod)
             for index = 1, math.min(#lines, 3) do
                 Font.draw(lines[index], 16, 84 + (index - 1) * 12)
             end
+            Font.draw(clip_text(dictionary.filter, 18, Font), 16, 124)
             Font.draw(dictionary.back, 16, 136)
             return
         end
@@ -704,6 +705,7 @@ return function(mod)
             end
         end
 
+        Font.draw(clip_text(dictionary.filter, 18, Font), 16, 124)
         Font.draw(dictionary.details, 16, 136)
     end
 
