@@ -1363,6 +1363,8 @@ return function(mod)
             width = width,
             height = height,
             scale = scale,
+            originX = tonumber(viewport.gameX) or 0,
+            originY = tonumber(viewport.gameY) or 0,
             theme = theme,
         }
     end
@@ -1591,7 +1593,11 @@ return function(mod)
                 or type(event.gameY) ~= "number" then
                 return next(game, event)
             end
-            local x, y = event.gameX, event.gameY
+            -- input.pointer reports viewport-local window coordinates;
+            -- the battle cards are drawn in logical game pixels after the
+            -- render.hud translation/scale, so invert that transform here.
+            local x = (event.gameX - layout.originX) / layout.scale
+            local y = (event.gameY - layout.originY) / layout.scale
             local panel = layout.panel
             local inside = x >= panel.x and x <= panel.x + panel.w
                 and y >= panel.y and y <= panel.y + panel.h
