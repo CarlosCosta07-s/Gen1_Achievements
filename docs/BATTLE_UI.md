@@ -49,7 +49,7 @@ As escolhas usam o snapshot atual, sua revisão e um ID crescente de intenção 
 - B / X / Backspace: voltar da seleção de golpes ou alvos.
 - Analógico: mover a seleção quando cruza a zona morta.
 - Controles virtuais Android/iOS: D-pad e A/B também navegam pelo mesmo menu, sem deixar a entrada chegar à tela nativa oculta.
-- Toque direto: tocar em um cartão confirma a ação; tocar na indicação `B: VOLTAR` na seleção de golpes/alvos retorna à etapa anterior.
+- Toque direto: tocar em um cartão confirma a ação; tocar na indicação `B: VOLTAR` na seleção de golpes/alvos retorna à etapa anterior. As coordenadas são transformadas para o espaço lógico, inclusive com janela ampliada, letterboxing ou viewport deslocado.
 
 O painel captura entrada somente enquanto uma fase controlável (`menu`, `moves`, `target`) está ativa. O hook `input.step` observa as bordas do overlay virtual antes de o motor promover os botões. A captura também registra `overlayPressed`, então um toque rápido que começa e termina entre passos não é perdido; a máscara temporária impede que o menu nativo consuma a mesma borda. Outras fases, mensagens, animações e menus nativos continuam sob controle do jogo. No Android, os controles virtuais nativos também podem navegar e confirmar o menu.
 
