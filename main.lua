@@ -1369,14 +1369,19 @@ return function(mod)
         }
     end
 
-    local function draw_battle_text(graphics, value, x, y, width, align, color, size_limit)
+    local function draw_battle_text(graphics, value, x, y, width, align, color, size_limit, text_scale)
         value = tostring(value or "")
         if size_limit then value = clip_text(value, size_limit, mod.ui.Font) end
+        local scale = tonumber(text_scale) or 1
+        if scale <= 0 or scale > 1 then scale = 1 end
         graphics.setColor(color[1], color[2], color[3], color[4] or 1)
         if graphics.printf then
-            graphics.printf(value, x, y, width, align or "left")
+            -- Keep the rendered text inside the same logical width while
+            -- scaling long labels down to fit low-resolution move cards.
+            local printWidth = scale < 1 and width / scale or width
+            graphics.printf(value, x, y, printWidth, align or "left", 0, scale, scale)
         else
-            graphics.print(value, x, y)
+            graphics.print(value, x, y, 0, scale, scale)
         end
     end
 
@@ -1393,28 +1398,38 @@ return function(mod)
         graphics.setColor(theme.shade[1], theme.shade[2], theme.shade[3], 1)
         graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
 
+        local text_width = rect.w - 8
+        local label_scale = math.min(1, text_width / math.max(1,
+            glyph_count(tostring(label or ""), mod.ui.Font) * 6))
+        draw_battle_text(graphics, label, rect.x + 4, rect.y + 2,
+            text_width, "left", foreground, 13, label_scale)
+
         if metadata and metadata.type then
-            local typeColor = BATTLE_TYPE_COLORS[tostring(metadata.type):upper()]
-                or theme.accent
+            local typeLabel = tostring(metadata.type):upper()
+            local typeColor = BATTLE_TYPE_COLORS[typeLabel] or theme.accent
             local chipWidth = math.min(37, math.max(24, rect.w * 0.34))
+            local chipX = rect.x + 4
+            local metaY = rect.y + rect.h - 10
+            local chipHeight = 7
             graphics.setColor(typeColor[1], typeColor[2], typeColor[3], 1)
-            graphics.rectangle("fill", rect.x + rect.w - chipWidth - 3,
-                rect.y + 3, chipWidth, math.max(8, rect.h - 6), theme.radius, theme.radius)
-            draw_battle_text(graphics, tostring(metadata.type):upper(),
-                rect.x + rect.w - chipWidth - 2, rect.y + 4, chipWidth - 2,
-                "center", { 1, 1, 1, 1 }, 7)
-        end
+            graphics.rectangle("fill", chipX, metaY, chipWidth, chipHeight,
+                theme.radius, theme.radius)
+            local typeScale = math.min(1, (chipWidth - 4) / math.max(1,
+                glyph_count(typeLabel, mod.ui.Font) * 6))
+            draw_battle_text(graphics, typeLabel, chipX + 1, metaY,
+                chipWidth - 2, "center", { 1, 1, 1, 1 }, 8, typeScale)
 
-        local text_width = metadata and metadata.type and rect.w * 0.64 or rect.w - 8
-        draw_battle_text(graphics, label, rect.x + 4, rect.y + 3,
-            text_width, "left", foreground, 13)
-
-        if metadata and metadata.pp ~= nil then
-            local ppText = ("PP %s/%s"):format(
-                tostring(metadata.pp), tostring(metadata.maxPp or metadata.pp)
-            )
-            draw_battle_text(graphics, ppText, rect.x + 4, rect.y + rect.h - 10,
-                rect.w - 8, "left", foreground, 12)
+            if metadata.pp ~= nil then
+                local ppText = ("PP %s/%s"):format(
+                    tostring(metadata.pp), tostring(metadata.maxPp or metadata.pp)
+                )
+                local ppWidth = math.max(16, rect.w - chipWidth - 14)
+                local ppX = rect.x + rect.w - 4 - ppWidth
+                local ppScale = math.min(1, ppWidth / math.max(1,
+                    glyph_count(ppText, mod.ui.Font) * 6))
+                draw_battle_text(graphics, ppText, ppX, metaY, ppWidth,
+                    "right", foreground, 9, ppScale)
+            end
         end
     end
 
