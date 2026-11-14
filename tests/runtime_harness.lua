@@ -1214,6 +1214,76 @@ check(#target_env:submitted() == 1
     and target_env:submitted()[1].revision == 1,
     "Gen 3 sparse target IDs were confused with visual list indices")
 
+-- Double battles identify the command actor independently of the battler
+-- rows, and classify the four native target slots by side and active slot.
+local double_target_env = make_environment("emerald")
+double_target_env:set_battle_snapshot({
+    prompt = "target", kind = "trainer", revision = 31, double = true,
+    active = 2, target = 0, targets = { 0, 1, 2, 3 },
+    player = { name = "RAICHU" },
+    battlers = {
+        { id = 0, side = "player", name = "PIKACHU", hp = 40, maxHp = 40, active = true },
+        { id = 1, side = "enemy", name = "GASTLY", hp = 25, maxHp = 25, active = true },
+        { id = 2, side = "player", name = "RAICHU", hp = 60, maxHp = 60, active = true },
+        { id = 3, side = "enemy", name = "ONIX", hp = 55, maxHp = 55, active = true },
+    },
+    enemy = {}, party = {}, moves = {}, items = {},
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+double_target_env:run_hook("render.hud", nil, double_target_env.game, base_viewport)
+local double_target_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then double_target_text[#double_target_text + 1] = call.value end
+end
+local double_target_rendered = table.concat(double_target_text, "\n")
+check(double_target_rendered:find("ATIVO: RAICHU", 1, true) ~= nil
+    and double_target_rendered:find("ATIVO", 1, true) ~= nil
+    and double_target_rendered:find("ALIADO", 1, true) ~= nil
+    and double_target_rendered:find("INIMIGO", 1, true) ~= nil,
+    "double-battle UI did not identify the active Pokémon, partner and opponents")
+double_target_env:run_hook(
+    "input.key", nil, double_target_env.game, { phase = "pressed", key = "down" }
+)
+double_target_env:run_hook(
+    "input.key", nil, double_target_env.game, { phase = "pressed", key = "z" }
+)
+check(#double_target_env:submitted() == 1
+    and double_target_env:submitted()[1].kind == "target"
+    and double_target_env:submitted()[1].target == 2,
+    "double-battle partner target was not submitted using its native battler ID")
+
+-- The active actor banner follows the engine when command control moves to
+-- the other player slot; it is not cached from the previous turn.
+double_target_env:set_battle_snapshot({
+    prompt = "moves", kind = "trainer", revision = 32, double = true, active = 0,
+    player = { name = "PIKACHU" }, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "THUNDERBOLT", name = "THUNDERBOLT", slot = 1,
+            type = "ELECTRIC", pp = 15, maxPp = 15 },
+    },
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+double_target_env:run_hook("render.hud", nil, double_target_env.game, base_viewport)
+local next_actor_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then next_actor_text[#next_actor_text + 1] = call.value end
+end
+check(table.concat(next_actor_text, "\n"):find("ATIVO: PIKACHU", 1, true) ~= nil,
+    "double-battle actor banner did not update when the active slot changed")
+
+-- Switching the active party member remains an engine-owned party phase.
+double_target_env:set_battle_snapshot({
+    prompt = "party", kind = "trainer", revision = 33, double = true,
+    active = 0, player = { name = "PIKACHU" },
+})
+check(double_target_env:run_hook(
+    "battle.bottom_ui_visible", true, {}
+) == true and double_target_env:run_hook(
+    "input.key", "native-double-party", double_target_env.game,
+    { phase = "pressed", key = "z" }
+) == "native-double-party",
+    "double-battle party selection was captured instead of remaining native")
+
 -- B returns from the move selector using the generation-neutral intent.
 command_env:set_battle_snapshot(move_snapshot)
 command_env:run_hook(
