@@ -1274,8 +1274,13 @@ return function(mod)
         return false
     end
 
-    local function navigate_battle(game, action)
-        local snapshot = read_battle_snapshot()
+    local function navigate_battle(game, action, capturedSnapshot)
+        -- Keep a physical/virtual input bound to the phase observed by its
+        -- hook. submit_battle_intent performs the fresh-snapshot check before
+        -- sending it, so a phase transition drops the input instead of
+        -- reinterpreting the same button in the next prompt.
+        local snapshot = type(capturedSnapshot) == "table"
+            and capturedSnapshot or read_battle_snapshot()
         if not is_owned_battle_prompt(snapshot) then return false end
         sync_battle_ui(game, snapshot)
         local count = battle_entry_count(snapshot, game)
@@ -1414,8 +1419,8 @@ return function(mod)
         end
         -- A player can hold a direction and tap A at the same time. Apply
         -- the new cursor first, then confirm it in this same input step.
-        if directionAction then navigate_battle(game, directionAction) end
-        if confirmAction then navigate_battle(game, confirmAction) end
+        if directionAction then navigate_battle(game, directionAction, snapshot) end
+        if confirmAction then navigate_battle(game, confirmAction, snapshot) end
     end
 
     if mod:supports("hooks", "input.step") then
@@ -1740,7 +1745,7 @@ return function(mod)
             local action = input and input.keyBindings
                 and input.keyBindings[event.key]
             if not action then return next(game, event) end
-            navigate_battle(game, action)
+            navigate_battle(game, action, snapshot)
             return
         end)
     end
@@ -1762,7 +1767,7 @@ return function(mod)
                     if ok then action = mapped end
                 end
                 if not action then return next(game, event) end
-                navigate_battle(game, action)
+                navigate_battle(game, action, snapshot)
                 return
             elseif event.phase == "axis" then
                 local action
@@ -1777,7 +1782,7 @@ return function(mod)
                 if action then
                     if battle_ui.axis_action ~= action then
                         battle_ui.axis_action = action
-                        navigate_battle(game, action)
+                        navigate_battle(game, action, snapshot)
                     end
                     return
                 end
