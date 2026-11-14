@@ -997,6 +997,8 @@ return function(mod)
         pointer_captures = {},
         axis_action = nil,
         touch_down = {},
+        touch_pending = {},
+        touch_mask_pending = {},
         touch_input_bridge = nil,
     }
     local battle_intent_id = 0
@@ -1030,6 +1032,8 @@ return function(mod)
             battle_ui.pointer_captures = {}
             battle_ui.axis_action = nil
             battle_ui.touch_down = {}
+            battle_ui.touch_pending = {}
+            battle_ui.touch_mask_pending = {}
         end
         if battle_ui.prompt ~= snapshot.prompt then
             battle_ui.prompt = snapshot.prompt
@@ -1184,6 +1188,10 @@ return function(mod)
         if owner and owner.isDown == bridge.isDownWrapper then
             owner.isDown = bridge.isDownOriginal
         end
+        if owner and bridge.overlayPressedWrapper
+            and owner.overlayPressed == bridge.overlayPressedWrapper then
+            owner.overlayPressed = bridge.overlayPressedOriginal
+        end
         battle_ui.touch_input_bridge = nil
     end
 
@@ -1200,12 +1208,12 @@ return function(mod)
             wasPressedOriginal = input.wasPressed,
             isDownOriginal = input.isDown,
             isTouchDownOriginal = input.isTouchDown,
+            overlayPressedOriginal = input.overlayPressed,
         }
         local function isVirtualTouchHeld(self, button)
-            if not BATTLE_NATIVE_INPUT_MASK[button]
-                or type(bridge.isTouchDownOriginal) ~= "function" then
-                return false
-            end
+            if not BATTLE_NATIVE_INPUT_MASK[button] then return false end
+            if battle_ui.touch_mask_pending[button] then return true end
+            if type(bridge.isTouchDownOriginal) ~= "function" then return false end
             local ok, down = pcall(bridge.isTouchDownOriginal, self, button)
             return ok and down == true
         end
@@ -1217,12 +1225,22 @@ return function(mod)
             if isVirtualTouchHeld(self, button) then return false end
             return bridge.isDownOriginal(self, button)
         end
+        if type(bridge.overlayPressedOriginal) == "function" then
+            bridge.overlayPressedWrapper = function(self, button)
+                if BATTLE_NATIVE_INPUT_MASK[button] then
+                    battle_ui.touch_pending[button] = true
+                end
+                return bridge.overlayPressedOriginal(self, button)
+            end
+            input.overlayPressed = bridge.overlayPressedWrapper
+        end
         input.wasPressed = bridge.wasPressedWrapper
         input.isDown = bridge.isDownWrapper
         battle_ui.touch_input_bridge = bridge
     end
 
-    local function step_battle_touch_input(game, snapshot)
+    local function step_battle_touch_input(game, snapshot, touchEdges)
+        touchEdges = type(touchEdges) == "table" and touchEdges or {}
         local input = game and game.input
         if not input then
             battle_ui.touch_down = {}
@@ -1240,7 +1258,8 @@ return function(mod)
         for _, button in ipairs(BATTLE_TOUCH_BUTTONS) do
             local down = touch_button_down(input, button)
             local wasDown = battle_ui.touch_down[button] == true
-            if is_owned_battle_prompt(snapshot) and down and not wasDown then
+            local tapped = touchEdges[button] == true
+            if is_owned_battle_prompt(snapshot) and ((down and not wasDown) or tapped) then
                 local action = BATTLE_TOUCH_ACTIONS[button]
                 if action == "up" or action == "down"
                     or action == "left" or action == "right" then
@@ -1259,9 +1278,15 @@ return function(mod)
 
     if mod:supports("hooks", "input.step") then
         mod.hooks:wrap("input.step", function(next, game, dt)
+            -- The previous Input:step has consumed the preceding edge, so
+            -- retire its temporary mask before collecting the next frame.
+            battle_ui.touch_mask_pending = {}
             next(game, dt)
+            local touchEdges = battle_ui.touch_pending
+            battle_ui.touch_pending = {}
+            battle_ui.touch_mask_pending = touchEdges
             local snapshot = read_battle_snapshot()
-            step_battle_touch_input(game, snapshot)
+            step_battle_touch_input(game, snapshot, touchEdges)
         end)
     end
 
