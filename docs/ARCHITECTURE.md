@@ -8,7 +8,7 @@ A implementação usa as superfícies oficiais da Portable Mod API 3:
 - `mod.ui.push` para abrir a tela a partir da opção do menu.
 - Tela com `update(dt)` e `draw()`, usando `game.input:wasPressed` para D-pad, A, B e START.
 
-O mesmo contrato é usado nas três gerações. A opção do menu ajusta sua largura automaticamente com base no maior rótulo, permitindo nomes localizados mais longos. O hook `ui.start_menu.items` é o ponto de extensão do menu do jogo; não deve ser confundido com uma página global do launcher.
+O mesmo contrato é usado nas três gerações. A opção do menu ajusta sua largura automaticamente com base no maior rótulo, permitindo nomes localizados mais longos. O hook `ui.start_menu.items` é o ponto de extensão do menu do jogo.
 
 ## Comportamento de console
 
@@ -86,9 +86,15 @@ luajit tests/runtime_harness.lua
 
 O harness exercita as 205 definições atuais com payloads sintéticos. As validações estáticas também usam uma matriz versionada do contrato do motor; nenhuma delas substitui testes dentro das versões executáveis dos onze jogos. A confirmação final exige testar as versões reais.
 
-## Limite de integração com o launcher
+## Organização das opções do jogo e do mod
 
-A Portable Mod API 3 pública consultada oferece telas dentro do jogo e hooks de menus do jogo, mas não documenta um registry para páginas globais no painel Extras do launcher. `core.quit_to_launcher` é um hook de ciclo de vida, não um ponto de registro de UI. A página global permanece pendente de uma extensão pública; toda a implementação planejada continuará no repositório do mod. Veja `docs/LAUNCHER_INTEGRATION.md`.
+- O hook `ui.options.rows`, disponível nos onze jogos, reorganiza descritores de opções nativas dentro das categorias já fornecidas pelo menu do jogo.
+- O mod ordena controles de áudio, vídeo, gráficos, batalha, velocidade e extras por uma sequência estável de IDs. Ele não desenha o menu de opções nem substitui a tipografia, cores, molduras, ícones, proporções ou controles nativos.
+- Linhas desconhecidas ou de outros mods mantêm sua posição e seus descritores originais; o hook chama a cadeia seguinte uma única vez e só trabalha quando recebe uma tabela.
+- A ordem externa das categorias continua pertencendo ao jogo. O mod ajusta somente a ordem das opções dentro delas, sem acessar funções internas do motor.
+- `mod.options:define` mantém a opção `achievement_language` no gerenciador de MODS dentro do jogo. Ela não é duplicada nas opções gerais.
+
+A navegação do gerenciador varia por geração: no Gen 1 ele é aberto pelo atalho F10; no Gen 2 e Gen 3, por START → MODS. A implementação do mod continua inteiramente neste repositório.
 
 ## Idioma
 
