@@ -1242,8 +1242,8 @@ local non_touch_env = make_environment("red")
 non_touch_env:set_battle_snapshot(menu_snapshot)
 non_touch_env:press("a")
 non_touch_env:run_hook("input.step", nil, non_touch_env.game, 1 / 60)
-check(non_touch_env.game.input:wasPressed("a") == true
-    and non_touch_env.game.input:isDown("a") == true,
+check(non_touch_env.game.input:isDown("a") == true
+    and non_touch_env.game.input:wasPressed("a") == true,
     "battle touch bridge masked a non-touch input source")
 
 -- The B: BACK header hint is an actual touch target, not decorative text.
