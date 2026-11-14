@@ -68,9 +68,23 @@ local function make_environment(game_id, initial_cache, language)
     local fail_writes = false
     local pop_count = 0
     local selected_language = language or "pt-BR"
+    local battle_snapshot = nil
+    local submitted_intents = {}
     local game = {
         save = { version = game_id },
         input = {
+            keyBindings = {
+                up = "up", down = "down", left = "left", right = "right",
+                z = "a", ["return"] = "a", space = "a",
+                x = "b", backspace = "b",
+            },
+            padAction = function(_, button)
+                local map = {
+                    dpup = "up", dpdown = "down", dpleft = "left", dpright = "right",
+                    a = "a", b = "b", x = "b",
+                }
+                return map[button]
+            end,
             wasPressed = function(_, button)
                 local value = pressed[button] == true
                 pressed[button] = nil
@@ -101,6 +115,13 @@ local function make_environment(game_id, initial_cache, language)
             if fail_writes then return false, "synthetic write failure" end
             cache[path] = value
             write_count = write_count + 1
+            return true
+        end,
+    }
+    mod.battle = {
+        snapshot = function() return battle_snapshot end,
+        submit = function(_, intent)
+            submitted_intents[#submitted_intents + 1] = intent
             return true
         end,
     }
@@ -163,6 +184,11 @@ local function make_environment(game_id, initial_cache, language)
         if surface == "hooks" then
             return name == "ui.start_menu.items"
                 or name == "ui.options.rows"
+                or name == "ui.party.submenu"
+                or name == "battle.bottom_ui_visible"
+                or name == "input.key"
+                or name == "input.gamepad"
+                or name == "input.pointer"
                 or name == "render.hud"
                 or name == "core.update"
         end
@@ -184,6 +210,7 @@ local function make_environment(game_id, initial_cache, language)
         hook_wrappers = hook_wrappers,
         options = option_definitions,
         drawn = drawn,
+        submitted_intents = submitted_intents,
         pushes = pushes,
     }
     function env:dispatch(name, payload)
@@ -197,6 +224,12 @@ local function make_environment(game_id, initial_cache, language)
     end
     function env:set_language(value)
         selected_language = value
+    end
+    function env:set_battle_snapshot(value)
+        battle_snapshot = value
+    end
+    function env:submitted()
+        return submitted_intents
     end
     function env:write_count()
         return write_count
@@ -884,5 +917,242 @@ local invalid_result = invalid_options_env:run_hook(
 )
 check(invalid_result == false,
     "options hook did not preserve a non-table downstream result")
+
+-- Party action submenus preserve field moves and unknown entries while
+-- grouping the common actions into a predictable order.
+local party_env = make_environment("red")
+local party_rows = {
+    { label = "CUT", action = "escape", move = "CUT" },
+    { label = "SWITCH", action = "switch" },
+    { label = "CANCEL", action = "cancel" },
+    { label = "STATS", action = "stats" },
+    { label = "MOD ACTION", action = "other" },
+}
+local party_result = party_env:run_hook(
+    "ui.party.submenu", party_rows, party_env.game, party_rows, {}, { battle = false }
+)
+check(party_result[1] == party_rows[1]
+    and party_result[2].action == "stats"
+    and party_result[3].action == "switch"
+    and party_result[4].action == "cancel"
+    and party_result[5] == party_rows[5],
+    "party submenu did not group common actions while preserving field moves and mods")
+local battle_party_rows = {
+    { label = "STATS", action = "stats" },
+    { label = "CANCEL", action = "cancel" },
+    { label = "SWITCH", action = "switch" },
+}
+local battle_party_result = party_env:run_hook(
+    "ui.party.submenu", battle_party_rows, party_env.game,
+    battle_party_rows, {}, { battle = true }
+)
+check(battle_party_result[1].action == "switch"
+    and battle_party_result[2].action == "stats"
+    and battle_party_result[3].action == "cancel",
+    "battle party submenu did not put SWITCH first")
+
+-- LÖVE draw stub for the vector battle overlay; records text and colors so
+-- the visual contract can be exercised without game assets or a ROM.
+local battle_draw_calls = {}
+local battle_draw_colors = {}
+love = love or {}
+love.graphics = {
+    push = function() battle_draw_calls[#battle_draw_calls + 1] = { kind = "push" } end,
+    pop = function() battle_draw_calls[#battle_draw_calls + 1] = { kind = "pop" } end,
+    translate = function(x, y)
+        battle_draw_calls[#battle_draw_calls + 1] = { kind = "translate", x = x, y = y }
+    end,
+    scale = function(value)
+        battle_draw_calls[#battle_draw_calls + 1] = { kind = "scale", value = value }
+    end,
+    setColor = function(r, g, b, a)
+        local color = { r, g, b, a }
+        battle_draw_colors[#battle_draw_colors + 1] = color
+        battle_draw_calls[#battle_draw_calls + 1] = { kind = "color", value = color }
+    end,
+    rectangle = function(mode, x, y, w, h)
+        battle_draw_calls[#battle_draw_calls + 1] = {
+            kind = "rectangle", mode = mode, x = x, y = y, w = w, h = h,
+        }
+    end,
+    print = function(value, x, y)
+        battle_draw_calls[#battle_draw_calls + 1] = {
+            kind = "text", value = tostring(value), x = x, y = y,
+        }
+    end,
+    printf = function(value, x, y, w, align)
+        battle_draw_calls[#battle_draw_calls + 1] = {
+            kind = "text", value = tostring(value), x = x, y = y, w = w, align = align,
+        }
+    end,
+}
+
+local battle_titles = {
+    "red", "blue", "yellow", "gold", "silver", "crystal",
+    "firered", "leafgreen", "ruby", "sapphire", "emerald",
+}
+local battle_accents = {}
+local base_viewport = {
+    width = 160, height = 144, gameX = 0, gameY = 0,
+    gameWidth = 160, gameHeight = 144, scale = 1,
+}
+local menu_snapshot = {
+    prompt = "menu", kind = "wild", revision = 1,
+    player = { name = "PIKACHU" }, enemy = { name = "RATTATA" },
+    party = {}, moves = {}, items = {},
+}
+for _, game_id in ipairs(battle_titles) do
+    for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+    for index = #battle_draw_colors, 1, -1 do battle_draw_colors[index] = nil end
+    local env = make_environment(game_id)
+    env:set_battle_snapshot(menu_snapshot)
+    env:run_hook("render.hud", nil, env.game, base_viewport)
+    local joined = {}
+    for _, call in ipairs(battle_draw_calls) do
+        if call.kind == "text" then joined[#joined + 1] = call.value end
+    end
+    local drawn_text = table.concat(joined, "\n")
+    check(drawn_text:find("LUTAR", 1, true) ~= nil
+        and drawn_text:find("BOLSA", 1, true) ~= nil
+        and drawn_text:find("POKEMON", 1, true) ~= nil
+        and drawn_text:find("FUGIR", 1, true) ~= nil,
+        game_id .. ": battle action panel omitted a localized action")
+    check(#battle_draw_colors >= 3,
+        game_id .. ": battle panel did not draw its version colors")
+    battle_accents[game_id] = battle_draw_colors[2]
+end
+local unique_accents = {}
+for _, color in pairs(battle_accents) do
+    unique_accents[("%.3f/%.3f/%.3f"):format(color[1], color[2], color[3])] = true
+end
+local accent_count = 0
+for _ in pairs(unique_accents) do accent_count = accent_count + 1 end
+check(accent_count >= 8,
+    "the eleven game variants did not retain distinct battle accent palettes")
+
+-- Main command selection must submit the validated semantic intent, not
+-- synthesize an engine turn or mutate a save record.
+local command_env = make_environment("red")
+command_env:set_battle_snapshot(menu_snapshot)
+command_env:run_hook(
+    "input.key", nil, command_env.game, { phase = "pressed", key = "z" }
+)
+check(#command_env:submitted() == 1
+    and command_env:submitted()[1].kind == "menu"
+    and command_env:submitted()[1].choice == "fight"
+    and command_env:submitted()[1].revision == 1,
+    "keyboard A did not submit the Fight command against the current revision")
+
+-- Move selection supports the four-slot grid, PP and type metadata.
+local move_snapshot = {
+    prompt = "moves", kind = "wild", revision = 2,
+    player = { name = "PIKACHU" }, enemy = { name = "RATTATA" },
+    party = {}, items = {},
+    moves = {
+        { id = "THUNDERBOLT", name = "THUNDERBOLT", type = "ELECTRIC", slot = 1, pp = 15, maxPp = 15 },
+        { id = "QUICK_ATTACK", name = "QUICK ATTACK", type = "NORMAL", slot = 2, pp = 30, maxPp = 30 },
+        { id = "THUNDER_WAVE", name = "THUNDER WAVE", type = "ELECTRIC", slot = 3, pp = 20, maxPp = 20 },
+        { id = "IRON_TAIL", name = "IRON TAIL", type = "STEEL", slot = 4, pp = 15, maxPp = 15 },
+    },
+}
+command_env:set_battle_snapshot(move_snapshot)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
+local move_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then move_text[#move_text + 1] = call.value end
+end
+local rendered_moves = table.concat(move_text, "\n")
+check(rendered_moves:find("THUNDERBOLT", 1, true) ~= nil
+    and rendered_moves:find("ELECTRIC", 1, true) ~= nil
+    and rendered_moves:find("PP 15/15", 1, true) ~= nil,
+    "move menu omitted move name, type badge or PP")
+command_env:run_hook(
+    "input.gamepad", nil, command_env.game, { phase = "pressed", button = "a" }
+)
+check(#command_env:submitted() == 2
+    and command_env:submitted()[2].kind == "move"
+    and command_env:submitted()[2].slot == 1
+    and command_env:submitted()[2].revision == 2,
+    "gamepad A did not submit the selected move slot")
+local no_moves_snapshot = {
+    prompt = "moves", kind = "wild", revision = 3,
+    player = {}, enemy = {}, party = {}, items = {}, moves = {},
+}
+command_env:set_battle_snapshot(no_moves_snapshot)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
+local empty_text = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then empty_text[#empty_text + 1] = call.value end
+end
+check(table.concat(empty_text, "\n"):find("SEM GOLPES USÁVEIS", 1, true) ~= nil,
+    "empty move menu did not show the localized empty state")
+
+-- Double-battle targeting uses the target IDs exposed by the portable snapshot.
+local target_snapshot = {
+    prompt = "target", kind = "wild", revision = 4, target = 0,
+    targets = { 0, 1, 2, 3 },
+    battlers = {
+        { id = 0, name = "PIKACHU", hp = 35, maxHp = 35 },
+        { id = 1, name = "PIDGEOTTO", hp = 25, maxHp = 40 },
+        { id = 2, name = "GEODUDE", hp = 19, maxHp = 30 },
+        { id = 3, name = "RATTATA", hp = 20, maxHp = 20 },
+    },
+    player = {}, enemy = {}, party = {}, moves = {}, items = {},
+}
+command_env:set_battle_snapshot(target_snapshot)
+command_env:run_hook(
+    "input.key", nil, command_env.game, { phase = "pressed", key = "z" }
+)
+check(#command_env:submitted() == 3
+    and command_env:submitted()[3].kind == "target"
+    and command_env:submitted()[3].target == 0
+    and command_env:submitted()[3].revision == 4,
+    "double-battle target did not submit the native battler ID")
+
+-- B returns from the move/target selector using the same validated API.
+command_env:set_battle_snapshot(move_snapshot)
+command_env:run_hook(
+    "input.key", nil, command_env.game, { phase = "pressed", key = "x" }
+)
+check(#command_env:submitted() == 4
+    and command_env:submitted()[4].kind == "back",
+    "B did not return from the native move selector")
+
+-- The pointer consumes only presses inside the drawn command tray; it never
+-- steals clicks from the rest of the game or from the touch controls.
+local pointer_env = make_environment("red")
+pointer_env:set_battle_snapshot(menu_snapshot)
+pointer_env:run_hook("render.hud", nil, pointer_env.game, base_viewport)
+local inside_consumed = pointer_env:run_hook(
+    "input.pointer", false, pointer_env.game,
+    { phase = "pressed", source = "touch", id = 1, gameX = 20, gameY = 108 }
+)
+check(inside_consumed == true
+    and #pointer_env:submitted() == 1
+    and pointer_env:submitted()[1].choice == "fight",
+    "touch press on Fight did not activate and consume the command card")
+local outside_consumed = pointer_env:run_hook(
+    "input.pointer", false, pointer_env.game,
+    { phase = "pressed", source = "touch", id = 2, gameX = 10, gameY = 20 }
+)
+check(outside_consumed == false,
+    "battle menu consumed a pointer press outside its own panel")
+
+-- The bottom battle layer is hidden only while the replacement UI is active.
+local hidden = command_env:run_hook(
+    "battle.bottom_ui_visible", true, {}
+)
+check(hidden == false,
+    "native battle command panel was not hidden while the replacement is active")
+command_env:set_battle_snapshot({
+    prompt = "locked", kind = "wild", revision = 5,
+})
+local visible = command_env:run_hook(
+    "battle.bottom_ui_visible", true, {}
+)
+check(visible == true,
+    "native battle UI was hidden during a non-interactive battle phase")
 
 print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, UI navigation, all 11 games, 3 locales, secret visibility and in-game OPTIONS row ordering verified."):format(#rows))
