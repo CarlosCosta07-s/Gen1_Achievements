@@ -5,7 +5,7 @@
 - Preservados os IDs nativos dos alvos, inclusive quando a lista é esparsa; a fase de equipe e a troca de Pokémon continuam sob controle do jogo.
 - Adicionadas traduções dos novos indicadores em inglês, português brasileiro e espanhol.
 - Preservada a seleção pelo ID nativo quando a lista de alvos muda dentro do mesmo prompt; se o battler selecionado desaparece, o cursor recorre ao alvo nativo atual ou a um índice válido.
-- Revalidado cada comando com um snapshot recém-lido; entradas capturadas antes de uma animação, mensagem ou mudança de prompt deixam de ser submetidas.
+- Vinculada cada entrada ao prompt e à revisão capturados pelo hook; o comando é descartado se qualquer um mudar antes da submissão, inclusive quando o prompt permanece igual.
 - Ampliado o harness para testar alvos que desaparecem, mudanças de revisão e descarte de intenções quando o motor avança de fase.
 
 ## 0.5.7 — Contexto de batalhas duplas
