@@ -60,6 +60,7 @@ local function make_environment(game_id, initial_cache, language)
     local cache = initial_cache or {}
     local screens = {}
     local hook_wrappers = {}
+    local option_definitions = {}
     local pressed = {}
     local drawn = {}
     local pushes = {}
@@ -85,7 +86,9 @@ local function make_environment(game_id, initial_cache, language)
 
     local mod = {}
     mod.options = {
-        define = function() end,
+        define = function(_, rows)
+            option_definitions = rows
+        end,
         get = function() return selected_language end,
     }
     mod.cache = {
@@ -159,6 +162,7 @@ local function make_environment(game_id, initial_cache, language)
         if surface == "events" then return true end
         if surface == "hooks" then
             return name == "ui.start_menu.items"
+                or name == "ui.options.rows"
                 or name == "render.hud"
                 or name == "core.update"
         end
@@ -178,6 +182,7 @@ local function make_environment(game_id, initial_cache, language)
         listeners = listeners,
         screens = screens,
         hook_wrappers = hook_wrappers,
+        options = option_definitions,
         drawn = drawn,
         pushes = pushes,
     }
@@ -763,5 +768,112 @@ check(revealed_detail:find("O Guardião", 1, true) ~= nil,
     "the live unlock did not reveal the secret achievement title")
 check(revealed_detail:find("Capture Articuno", 1, true) ~= nil,
     "the live unlock did not reveal the localized secret description")
+
+-- The mod's own setting stays in the in-game MODS manager via
+-- mod.options:define; it is not copied into the game's general OPTIONS rows.
+check(type(ui_env.options) == "table" and #ui_env.options == 1
+    and ui_env.options[1].key == "achievement_language"
+    and ui_env.options[1].type == "choice"
+    and ui_env.options[1].default == "pt-BR"
+    and #ui_env.options[1].choices == 3,
+    "the achievement language setting was not registered in the MODS manager")
+
+-- The public ui.options.rows hook sorts native setting rows inside their
+-- existing groups while preserving third-party rows and the original objects.
+local option_row_ids = {
+    "sfxVol", "third_party_audio", "musicVol",
+    "animations", "third_party_general", "battleStyle",
+    "videoMode", "uiLayout", "orientation", "musicFilter", "pikaVol",
+    "vsync", "screenPos", "faithfulRes", "audioMode",
+    "shaderfx", "colors", "uiLetterbox", "shaderfx2",
+    "speedBattle", "textSpeed", "speedMenu", "speedOverworld",
+    "battleBg", "battleHud", "battleLayout", "battleFit",
+    "zoom", "tilt", "voidFill",
+}
+local expected_by_slot = {
+    [1] = "audioMode",
+    [3] = "musicVol",
+    [4] = "battleStyle",
+    [6] = "animations",
+    [7] = "uiLayout",
+    [8] = "orientation",
+    [9] = "sfxVol",
+    [10] = "pikaVol",
+    [11] = "third_party_general",
+    [12] = "musicFilter",
+    [13] = "videoMode",
+    [14] = "screenPos",
+    [15] = "faithfulRes",
+    [16] = "vsync",
+    [17] = "colors",
+    [18] = "shaderfx",
+    [19] = "uiLetterbox",
+    [20] = "shaderfx2",
+    [21] = "textSpeed",
+    [22] = "speedOverworld",
+    [23] = "speedBattle",
+    [24] = "speedMenu",
+    [25] = "battleLayout",
+    [26] = "battleFit",
+    [27] = "battleHud",
+    [28] = "battleBg",
+    [29] = "tilt",
+    [30] = "zoom",
+    [31] = "voidFill",
+}
+local function make_option_rows()
+    local result = {}
+    for _, id in ipairs(option_row_ids) do
+        result[#result + 1] = {
+            id = id,
+            label = id,
+            marker = "preserve-" .. id,
+        }
+    end
+    return result
+end
+
+local supported_versions = {
+    "red", "blue", "yellow", "gold", "silver", "crystal",
+    "firered", "leafgreen", "ruby", "sapphire", "emerald",
+}
+for _, game_id in ipairs(supported_versions) do
+    local env = make_environment(game_id)
+    local input_rows = make_option_rows()
+    local original_rows = {}
+    for index, row in ipairs(input_rows) do original_rows[index] = row end
+
+    local organized = env:run_hook(
+        "ui.options.rows", input_rows, env.game, input_rows
+    )
+    check(type(organized) == "table" and #organized == #input_rows,
+        game_id .. ": options hook changed the number of rows")
+
+    for index, expected_id in pairs(expected_by_slot) do
+        check(organized[index].id == expected_id,
+            game_id .. ": wrong options row at slot " .. tostring(index)
+                .. "; expected " .. expected_id .. ", got "
+                .. tostring(organized[index].id))
+    end
+
+    -- Every non-native row stays at exactly the same position and is not cloned.
+    check(organized[2] == original_rows[2]
+        and organized[5] == original_rows[5],
+        game_id .. ": another mod's option row was moved or replaced")
+
+    for index, row in ipairs(organized) do
+        check(row.marker == "preserve-" .. row.id,
+            game_id .. ": option row data was changed at slot " .. tostring(index))
+    end
+end
+
+-- An invalid downstream result is passed through unchanged so the engine can
+-- apply its own documented fallback to the vanilla option list.
+local invalid_options_env = make_environment("red")
+local invalid_result = invalid_options_env:run_hook(
+    "ui.options.rows", false, invalid_options_env.game, {}
+)
+check(invalid_result == false,
+    "options hook did not preserve a non-table downstream result")
 
 print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, UI navigation, all 11 games, 3 locales, filter help and secret achievement visibility verified."):format(#rows))
