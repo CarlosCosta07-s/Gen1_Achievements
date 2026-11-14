@@ -16,6 +16,8 @@ Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRe
 
 A interface usa os widgets e hooks oficiais da Portable Mod API 3. O item do menu e a tela são registrados pelo próprio mod; não é necessário modificar o código-base do Gen1Recomp para adicionar a entrada ao menu START.
 
+A página global **Extras → Conquistas** do launcher ainda não está implementada. A API pública consultada documenta telas dentro do jogo e o hook `ui.start_menu.items`, mas não um registro de páginas para o painel Extras do launcher. O limite e o plano de integração estão registrados em [`docs/LAUNCHER_INTEGRATION.md`](docs/LAUNCHER_INTEGRATION.md); nenhuma alteração será feita no repositório do Gen1Recomp.
+
 ## Jogos e perfis
 
 Os onze jogos têm catálogos e arquivos de progresso independentes:
@@ -50,7 +52,7 @@ Cada jogo contém entre 17 e 20 conquistas de Pokédex, evolução, batalhas, in
 - `docs/` — arquitetura, armazenamento, integridade e contrato dos eventos.
 - `tests/validate_catalog.py` — validação estrutural e de traduções.
 - `tests/validate_engine_contract.py` — verificação de eventos, campos e tipos contra a revisão fixada do motor.
-- `tests/runtime_harness.lua` — execução controlada do `main.lua` com uma API de teste.
+- `tests/runtime_harness.lua` — execução controlada do `main.lua`, incluindo o menu START e a navegação da tela de conquistas, com uma API de teste.
 
 ## Validação e testes
 
@@ -65,7 +67,7 @@ luajit tests/runtime_harness.lua
 
 O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores e limites equilibrados de 17–20 conquistas por jogo. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
 
-O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita todas as 205 linhas do catálogo, além dos bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação. O GitHub Actions executa as quatro verificações em cada atualização de `main`.
+O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 205 linhas do catálogo. Também executa o hook do menu START, verifica a posição da entrada do mod entre SAVE e OPTION, aciona a tela, percorre filtros, testa a rolagem de cinco linhas, abre detalhes e fecha a tela com B/START. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação. O GitHub Actions executa as verificações em cada atualização de `main`.
 
 Esses testes automatizados não substituem testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 
