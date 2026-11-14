@@ -62,6 +62,7 @@ local function make_environment(game_id, initial_cache, language)
     local hook_wrappers = {}
     local option_definitions = {}
     local pressed = {}
+    local touch_down = {}
     local drawn = {}
     local pushes = {}
     local write_count = 0
@@ -89,6 +90,12 @@ local function make_environment(game_id, initial_cache, language)
                 local value = pressed[button] == true
                 pressed[button] = nil
                 return value
+            end,
+            isDown = function(_, button)
+                return pressed[button] == true
+            end,
+            isTouchDown = function(_, button)
+                return touch_down[button] == true
             end,
         },
         stack = {
@@ -186,6 +193,7 @@ local function make_environment(game_id, initial_cache, language)
                 or name == "ui.options.rows"
                 or name == "ui.party.submenu"
                 or name == "battle.bottom_ui_visible"
+                or name == "input.step"
                 or name == "input.key"
                 or name == "input.gamepad"
                 or name == "input.pointer"
@@ -227,6 +235,9 @@ local function make_environment(game_id, initial_cache, language)
     end
     function env:set_battle_snapshot(value)
         battle_snapshot = value
+    end
+    function env:set_touch_down(button, value)
+        touch_down[button] = value == true
     end
     function env:submitted()
         return submitted_intents
@@ -1155,6 +1166,53 @@ local outside_consumed = pointer_env:run_hook(
 check(outside_consumed == false,
     "battle menu consumed a pointer press outside its own panel")
 
+-- Android/iOS virtual controls inject buttons through Input directly.
+-- The input.step bridge must route those touch edges to our menu and mask
+-- the same GB buttons from the still-running native battle controller.
+local overlay_env = make_environment("red")
+overlay_env:set_battle_snapshot(menu_snapshot)
+overlay_env:set_touch_down("a", true)
+overlay_env:press("a")
+overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
+check(#overlay_env:submitted() == 1
+    and overlay_env:submitted()[1].kind == "menu"
+    and overlay_env:submitted()[1].choice == "fight",
+    "virtual touch A did not submit the Fight command")
+check(overlay_env.game.input:wasPressed("a") == false
+    and overlay_env.game.input:isDown("a") == false,
+    "virtual touch A leaked into the hidden native battle menu")
+
+-- A held A must not auto-confirm the first move after the command page changes.
+overlay_env:set_battle_snapshot(move_snapshot)
+overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
+check(#overlay_env:submitted() == 1,
+    "a held virtual A was repeated across a battle prompt transition")
+overlay_env:set_touch_down("a", false)
+overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
+overlay_env:set_touch_down("a", true)
+overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
+check(#overlay_env:submitted() == 2
+    and overlay_env:submitted()[2].kind == "move"
+    and overlay_env:submitted()[2].slot == 1,
+    "a fresh virtual touch A did not select the first move")
+overlay_env:set_battle_snapshot({ prompt = "locked", kind = "wild", revision = 3 })
+overlay_env:run_hook("input.step", nil, overlay_env.game, 1 / 60)
+check(overlay_env.game.input.wasPressed ~= nil,
+    "native input methods were not restored after leaving the custom menu")
+
+-- The B: BACK header hint is an actual touch target, not decorative text.
+local back_env = make_environment("red")
+back_env:set_battle_snapshot(move_snapshot)
+back_env:run_hook("render.hud", nil, back_env.game, base_viewport)
+local back_consumed = back_env:run_hook(
+    "input.pointer", false, back_env.game,
+    { phase = "pressed", source = "touch", id = 3, gameX = 110, gameY = 84 }
+)
+check(back_consumed == true
+    and #back_env:submitted() == 1
+    and back_env:submitted()[1].kind == "back",
+    "touching the B: BACK header did not return from the move selector")
+
 -- The bottom battle layer is hidden only while the replacement UI is active.
 local hidden = command_env:run_hook(
     "battle.bottom_ui_visible", true, {}
@@ -1170,4 +1228,4 @@ local visible = command_env:run_hook(
 check(visible == true,
     "native battle UI was hidden during a non-interactive battle phase")
 
-print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, UI navigation, all 11 games, 3 locales, secret visibility and in-game OPTIONS row ordering verified."):format(#rows))
+print(("Runtime harness OK: %d catalog achievements exercised through main.lua; profiles, START menu, battle command and touch UI, all 11 games, 3 locales, secret visibility and in-game OPTIONS row ordering verified."):format(#rows))
