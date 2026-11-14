@@ -9,7 +9,6 @@ Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRe
 - Nova opção no menu START, posicionada antes de OPTIONS.
 - Tela de conquistas controlada pelo D-pad e pelos botões A/B/START.
 - Filtros All / Unlocked / Locked, com instrução de navegação no rodapé.
-
 - Detalhes e descrições das conquistas.
 - Contadores de progresso para conquistas incrementais.
 - Notificação na tela quando uma conquista é desbloqueada.
