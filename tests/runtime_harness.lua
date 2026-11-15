@@ -1717,134 +1717,6 @@ exhausted_env:run_hook(
 check(#exhausted_env:submitted() == 0,
     "a move with known zero PP was incorrectly enabled")
 
--- Main command selection must submit the validated semantic intent, not
--- synthesize an engine turn or mutate a save record.
-local command_env = make_environment("red")
-command_env:set_battle_snapshot(menu_snapshot)
-command_env:run_hook(
-    "input.key", nil, command_env.game, { phase = "pressed", key = "z" }
-)
-check(#command_env:submitted() == 1
-    and command_env:submitted()[1].kind == "menu"
-    and command_env:submitted()[1].choice == "fight"
-    and command_env:submitted()[1].revision == 1,
-    "keyboard A did not submit the Fight command against the current revision")
-
--- Move selection supports the four-slot grid, PP and type metadata.
-local move_snapshot = {
-    prompt = "moves", kind = "wild", revision = 2,
-    player = { name = "PIKACHU" }, enemy = { name = "RATTATA" },
-    party = {}, items = {},
-    moves = {
-        { id = "THUNDERBOLT", name = "THUNDERBOLT", type = "ELECTRIC", slot = 1, pp = 15, maxPp = 15 },
-        { id = "QUICK_ATTACK", name = "QUICK ATTACK", type = "NORMAL", slot = 2, pp = 30, maxPp = 30 },
-        { id = "THUNDER_WAVE", name = "THUNDER WAVE", type = "ELECTRIC", slot = 3, pp = 20, maxPp = 20 },
-        { id = "IRON_TAIL", name = "IRON TAIL", type = "STEEL", slot = 4, pp = 15, maxPp = 15 },
-    },
-}
-command_env:set_battle_snapshot(move_snapshot)
-for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
-command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
-local move_text = {}
-for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "text" then move_text[#move_text + 1] = call.value end
-end
-local rendered_moves = table.concat(move_text, "\n")
-check(rendered_moves:find("THUNDERBOLT", 1, true) ~= nil
-    and rendered_moves:find("ELECTRIC", 1, true) ~= nil
-    and rendered_moves:find("PP 15/15", 1, true) ~= nil,
-    "move menu omitted move name, type badge or PP")
-command_env:run_hook(
-    "input.gamepad", nil, command_env.game, { phase = "pressed", button = "a" }
-)
-check(#command_env:submitted() == 2
-    and command_env:submitted()[2].kind == "move"
-    and command_env:submitted()[2].slot == 1
-    and command_env:submitted()[2].revision == 2,
-    "gamepad A did not submit the selected move slot")
-local no_moves_snapshot = {
-    prompt = "moves", kind = "wild", revision = 3,
-    player = {}, enemy = {}, party = {}, items = {}, moves = {},
-}
-command_env:set_battle_snapshot(no_moves_snapshot)
-for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
-command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
-local empty_text = {}
-for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "text" then empty_text[#empty_text + 1] = call.value end
-end
-check(table.concat(empty_text, "\n"):find("SEM GOLPES USÁVEIS", 1, true) ~= nil,
-    "empty move menu did not show the localized empty state")
--- Gen 3 compacts the visible move list but preserves each native slot.
--- The public UnifiedBattle facade normalizes absent PP to zero before the
--- mod receives the snapshot, so zero is displayed and disabled consistently.
-local gen3_move_env = make_environment("emerald")
-local gen3_move_snapshot = {
-    prompt = "moves", kind = "wild", revision = 1,
-    player = {}, enemy = {}, party = {}, items = {},
-    moves = {
-        { id = "HIDDEN_POWER", name = "HIDDEN POWER", type = "DARK",
-            slot = 3, pp = 10, maxPp = 10 },
-    },
-}
-gen3_move_env:set_battle_snapshot(gen3_move_snapshot)
-for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
-gen3_move_env:run_hook("render.hud", nil, gen3_move_env.game, base_viewport)
-local gen3_move_text = {}
-for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "text" then gen3_move_text[#gen3_move_text + 1] = call.value end
-end
-local gen3_move_rendered = table.concat(gen3_move_text, "\n")
-check(gen3_move_rendered:find("PP 10/10", 1, true) ~= nil,
-    "Gen 3 move PP was not rendered from the normalized snapshot")
-gen3_move_env:run_hook(
-    "input.key", nil, gen3_move_env.game, { phase = "pressed", key = "z" }
-)
-check(#gen3_move_env:submitted() == 1
-    and gen3_move_env:submitted()[1].kind == "move"
-    and gen3_move_env:submitted()[1].slot == 3,
-    "Gen 3 move was submitted using its visual index instead of its native slot")
-
--- A missing PP from the facade is represented as zero and must be blocked.
-local normalized_pp_env = make_environment("emerald")
-normalized_pp_env:set_battle_snapshot({
-    prompt = "moves", kind = "wild", revision = 1,
-    player = {}, enemy = {}, party = {}, items = {},
-    moves = {
-        { id = "UNKNOWN_PP", name = "UNKNOWN PP", type = "NORMAL",
-            slot = 2, pp = 0, maxPp = 0 },
-    },
-})
-for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
-normalized_pp_env:run_hook("render.hud", nil, normalized_pp_env.game, base_viewport)
-local normalized_pp_text = {}
-for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "text" then normalized_pp_text[#normalized_pp_text + 1] = call.value end
-end
-check(table.concat(normalized_pp_text, "\n"):find("PP 0/0", 1, true) ~= nil,
-    "normalized missing PP was not presented as zero")
-normalized_pp_env:run_hook(
-    "input.key", nil, normalized_pp_env.game, { phase = "pressed", key = "z" }
-)
-check(#normalized_pp_env:submitted() == 0,
-    "a move with normalized zero PP was incorrectly enabled")
-
--- Known zero PP remains disabled and cannot be submitted.
-local exhausted_env = make_environment("emerald")
-exhausted_env:set_battle_snapshot({
-    prompt = "moves", kind = "wild", revision = 1,
-    player = {}, enemy = {}, party = {}, items = {},
-    moves = {
-        { id = "STRUGGLE_TEST", name = "STRUGGLE TEST", type = "NORMAL",
-            slot = 2, pp = 0, maxPp = 10 },
-    },
-})
-exhausted_env:run_hook(
-    "input.key", nil, exhausted_env.game, { phase = "pressed", key = "z" }
-)
-check(#exhausted_env:submitted() == 0,
-    "a move with known zero PP was incorrectly enabled")
-
 
 -- Gen 3 can expose sparse native battler IDs in double battles.
 -- A native battler ID is not necessarily the visual list index.
@@ -1858,18 +1730,24 @@ local target_snapshot = {
     player = {}, enemy = {}, party = {}, moves = {}, items = {},
 }
 local target_env = make_environment("emerald")
+target_env.game.session = { version = "emerald" }
 target_env:set_battle_snapshot(target_snapshot)
 for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
 target_env:run_hook("render.hud", nil, target_env.game, base_viewport)
-local sparse_target_tracks = 0
+local sparse_target_text, sparse_target_cursors = {}, 0
 for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "rectangle" and call.mode == "line"
-        and call.h == 3 and call.w > 50 and call.w < 60 then
-        sparse_target_tracks = sparse_target_tracks + 1
-    end
+    if call.kind == "text" then sparse_target_text[#sparse_target_text + 1] = call.value end
+    if call.kind == "asset_glyph" then sparse_target_cursors = sparse_target_cursors + 1 end
+    check(call.kind ~= "rectangle" and call.kind ~= "graphics_text",
+        "native target selection drew generic vector cards or default text")
 end
-check(sparse_target_tracks == 2,
-    "sparse target cards did not render one HP meter for each available battler")
+local sparse_target_rendered = table.concat(sparse_target_text, "\n")
+check(sparse_target_rendered:find("PIKACHU", 1, true) ~= nil
+    and sparse_target_rendered:find("RATTATA", 1, true) ~= nil
+    and sparse_target_rendered:find("35/35", 1, true) ~= nil
+    and sparse_target_rendered:find("20/20", 1, true) ~= nil
+    and sparse_target_cursors == 1,
+    "native target list omitted the available battlers, HP values or game cursor")
 target_env:run_hook(
     "input.key", nil, target_env.game, { phase = "pressed", key = "z" }
 )
@@ -1882,6 +1760,7 @@ check(#target_env:submitted() == 1
 -- Double battles identify the command actor independently of the battler
 -- rows, and classify the four native target slots by side and active slot.
 local double_target_env = make_environment("emerald")
+double_target_env.game.session = { version = "emerald" }
 double_target_env:set_battle_snapshot({
     prompt = "target", kind = "trainer", revision = 31, double = true,
     active = 2, target = 0, targets = { 0, 1, 2, 3 },
@@ -1911,41 +1790,21 @@ check(double_target_rendered:find("ATIVO: RAICHU", 1, true) ~= nil
     and double_target_rendered:find("BRN", 1, true) ~= nil
     and double_target_rendered:find("FRZ", 1, true) ~= nil,
     "double-battle UI omitted actor, HP, role or recognized target status indicators")
-local double_health_fill = false
-for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "rectangle" and call.mode == "fill"
-        and call.h == 1 and call.w > 90 and call.w < 100 then
-        double_health_fill = true
-        break
-    end
-end
-check(double_health_fill,
-    "double-battle actor HP meter did not render the snapshot health ratio")
 local initial_cursor_y, initial_cursor_marks
 initial_cursor_marks = 0
 for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "rectangle" and call.mode == "fill"
-        and call.w == 2 and call.h > 4 then
+    if call.kind == "asset_glyph" and call.renderer == "gba-native-cursor" then
         initial_cursor_marks = initial_cursor_marks + 1
         initial_cursor_y = call.y
     end
+    check(call.kind ~= "rectangle" and call.kind ~= "graphics_text",
+        "double-battle target list used generic vector UI instead of native assets")
 end
 check(initial_cursor_marks == 1 and initial_cursor_y ~= nil,
-    "target grid did not visibly mark exactly one current cursor")
-local target_health_tracks, target_health_fills = 0, 0
-for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "rectangle" and call.mode == "line"
-        and call.h == 3 and call.w > 50 and call.w < 60 then
-        target_health_tracks = target_health_tracks + 1
-    elseif call.kind == "rectangle" and call.mode == "fill"
-        and call.h == 1 and call.w > 0 and call.w < 56 then
-        target_health_fills = target_health_fills + 1
-    end
-end
-check(target_health_tracks == 4 and target_health_fills == 3,
-    "double-battle target HP meters did not show all battlers and their distinct health ratios")
+    "native GBA target menu did not draw exactly one native cursor")
 
 local invalid_target_hp_env = make_environment("emerald")
+invalid_target_hp_env.game.session = { version = "emerald" }
 invalid_target_hp_env:set_battle_snapshot({
     prompt = "target", kind = "trainer", revision = 33,
     targets = { 0, 1 },
@@ -1959,17 +1818,15 @@ for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
 invalid_target_hp_env:run_hook(
     "render.hud", nil, invalid_target_hp_env.game, base_viewport
 )
-local invalid_target_tracks = 0
+local invalid_target_text = {}
 for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "rectangle" and call.mode == "line"
-        and call.h == 3 and call.w > 50 and call.w < 60 then
-        invalid_target_tracks = invalid_target_tracks + 1
-    end
+    if call.kind == "text" then invalid_target_text[#invalid_target_text + 1] = call.value end
 end
-check(invalid_target_tracks == 0,
-    "invalid or missing target HP values produced an estimated health meter")
+check(not table.concat(invalid_target_text, "\n"):find("10/0", 1, true),
+    "invalid or missing target HP values produced a fabricated HP value")
 
 local extra_status_env = make_environment("emerald")
+extra_status_env.game.session = { version = "emerald" }
 extra_status_env:set_battle_snapshot({
     prompt = "target", kind = "trainer", revision = 34,
     targets = { 0, 1, 2 },
@@ -1995,6 +1852,7 @@ check(extra_status_rendered:find("PAR", 1, true) ~= nil
     "paralysis/toxic status badges were omitted or an unknown status was displayed")
 
 local no_actor_hp_env = make_environment("emerald")
+no_actor_hp_env.game.session = { version = "emerald" }
 no_actor_hp_env:set_battle_snapshot({
     prompt = "moves", kind = "trainer", revision = 32, double = true,
     active = 0, player = { name = "PIKACHU", hp = 0, maxHp = 0 },
@@ -2017,14 +1875,13 @@ double_target_env:run_hook("render.hud", nil, double_target_env.game, base_viewp
 local moved_cursor_y, moved_cursor_marks
 moved_cursor_marks = 0
 for _, call in ipairs(battle_draw_calls) do
-    if call.kind == "rectangle" and call.mode == "fill"
-        and call.w == 2 and call.h > 4 then
+    if call.kind == "asset_glyph" and call.renderer == "gba-native-cursor" then
         moved_cursor_marks = moved_cursor_marks + 1
         moved_cursor_y = call.y
     end
 end
 check(moved_cursor_marks == 1 and moved_cursor_y ~= initial_cursor_y,
-    "target cursor marker did not follow the selected native battler")
+    "native GBA cursor did not follow the selected battler")
 double_target_env:run_hook(
     "input.key", nil, double_target_env.game, { phase = "pressed", key = "z" }
 )
@@ -2193,8 +2050,8 @@ for _, call in ipairs(battle_draw_calls) do
     if call.kind == "text" then expired_notice_text[#expired_notice_text + 1] = call.value end
 end
 check(table.concat(expired_notice_text, "\n"):find("NÃO PODE MIRAR EM SI", 1, true) == nil
-    and table.concat(expired_notice_text, "\n"):find("B: VOLTAR", 1, true) ~= nil,
-    "battle target rejection notice did not expire back to the normal control hint")
+    and table.concat(expired_notice_text, "\n"):find("GASTLY", 1, true) ~= nil,
+    "battle target rejection notice did not expire while preserving native target text")
 
 -- A generic API rejection still gets useful localized feedback.
 local generic_rejection_env = make_environment("emerald")
@@ -2281,7 +2138,7 @@ double_target_env:set_battle_snapshot({
     active = 0, player = { name = "PIKACHU" },
 })
 check(double_target_env:run_hook(
-    "battle.bottom_ui_visible", true, {}
+    "battle.bottom_ui_visible", true, { game = double_target_env.game }
 ) == true and double_target_env:run_hook(
     "input.key", "native-double-party", double_target_env.game,
     { phase = "pressed", key = "z" }
@@ -2518,10 +2375,11 @@ for _, call in ipairs(battle_draw_calls) do
     if call.kind == "text" then mimic_text[#mimic_text + 1] = call.value end
 end
 local mimic_rendered = table.concat(mimic_text, "\n")
-check(mimic_rendered:find("MÍMICA", 1, true) ~= nil
-    and mimic_rendered:find("THUNDERBOLT", 1, true) ~= nil,
-    "Mimic selector did not render its localized heading and move choices")
-check(mimic_env:run_hook("battle.bottom_ui_visible", true, {}) == false,
+check(mimic_rendered:find("THUNDERBOLT", 1, true) ~= nil
+    and mimic_env:run_hook("battle.bottom_ui_visible", true,
+        { game = mimic_env.game }) == false,
+    "native Mimic selector did not render its move choices in the original window")
+check(mimic_env:run_hook("battle.bottom_ui_visible", true, { game = mimic_env.game }) == false,
     "native battle panel was not replaced during Mimic selection")
 mimic_env:run_hook(
     "input.key", nil, mimic_env.game, { phase = "pressed", key = "z" }
@@ -2545,12 +2403,11 @@ for _, call in ipairs(battle_draw_calls) do
     if call.kind == "text" then safari_text[#safari_text + 1] = call.value end
 end
 local safari_rendered = table.concat(safari_text, "\n")
-check(safari_rendered:find("SAFÁRI", 1, true) ~= nil
-    and safari_rendered:find("BOLA", 1, true) ~= nil
+check(safari_rendered:find("BOLA", 1, true) ~= nil
     and safari_rendered:find("ISCA", 1, true) ~= nil
-    and safari_rendered:find("BOLAS: 30", 1, true) ~= nil,
-    "Safari menu did not render its action labels or remaining ball count")
-check(safari_env:run_hook("battle.bottom_ui_visible", true, {}) == false,
+    and safari_rendered:find("BOLAS 30", 1, true) ~= nil,
+    "native Safari menu did not render its action labels or remaining ball count")
+check(safari_env:run_hook("battle.bottom_ui_visible", true, { game = safari_env.game }) == false,
     "native battle panel was not replaced during Safari action selection")
 safari_env:run_hook(
     "input.key", nil, safari_env.game, { phase = "pressed", key = "right" }
