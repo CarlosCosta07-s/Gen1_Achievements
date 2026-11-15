@@ -872,6 +872,15 @@ local function check_gen3_screen(game_id, version_field)
         env.game.session = { version = game_id }
     end
 
+    local start_items = { { label = "SAVE" }, { label = "OPTION" } }
+    local start_menu = env:run_hook(
+        "ui.start_menu.items", start_items, env.game, start_items
+    )
+    start_menu[2].onSelect()
+    check(#env.pushes == 1 and env.pushes[1].game == env.game
+        and env.pushes[1].id == screen_id,
+        game_id .. ": clicking the START entry did not push the Gen 3 screen")
+
     local screen = env.screens[screen_id].new(env.game)
     check(screen.gbaCanvas == true,
         game_id .. ": Gen 3 screen did not request the full GBA canvas")
@@ -897,10 +906,17 @@ local function check_gen3_screen(game_id, version_field)
     end
     check(full_canvas, game_id .. ": background did not cover the 240x160 GBA screen")
     local used_gba_font = false
+    local legacy_text_calls = 0
     for _, item in ipairs(env.drawn) do
-        if item.font_size == 8 then used_gba_font = true end
+        if item.font_size == 8 then
+            used_gba_font = true
+        else
+            legacy_text_calls = legacy_text_calls + 1
+        end
     end
     check(used_gba_font, game_id .. ": GBA screen did not use its dedicated pixel font")
+    check(legacy_text_calls == 0,
+        game_id .. ": GBA screen still called the legacy Game Boy font renderer")
     check(love.graphics.getFont() == original_font,
         game_id .. ": GBA achievement screen leaked its font")
 
