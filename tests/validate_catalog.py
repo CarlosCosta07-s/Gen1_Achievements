@@ -188,10 +188,10 @@ def validate_catalog() -> int:
     rows_by_id = {}
     with (ROOT / "data/achievements.tsv").open("r", encoding="utf-8") as handle:
         for raw in handle:
-            line = raw.rstrip("\\r\\n")
+            line = raw.rstrip("\r\n")
             if not line or line.startswith("#"):
                 continue
-            fields = line.split("\\t")
+            fields = line.split("\t")
             rows_by_id[fields[1]] = fields
     signature_contracts = set()
     for game in GAMES:
