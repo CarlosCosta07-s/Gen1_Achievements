@@ -205,6 +205,7 @@ local function make_environment(game_id, initial_cache, language)
                     x = x,
                     y = y,
                     color = { r, g, b, a },
+                    renderer = "mod.ui.Font",
                 }
             end,
             drawBox = function()
@@ -857,8 +858,8 @@ end
 
 -- Match the real Game3 owner: it has generation=3, a nil save while
 -- playing, and keeps the selected version on session.version. Ruby-family
--- games also have a distinct 240x160 drawing surface and must never use the
--- legacy Game Boy tile-font path.
+-- games use the full 240x160 canvas and the engine's generation-aware pixel
+-- font; the default LÖVE font must not be used for achievement labels.
 local function check_gen3_screen(game_id, version_field)
     local env = make_environment(game_id)
     env.game.generation = 3
@@ -905,18 +906,20 @@ local function check_gen3_screen(game_id, version_field)
         end
     end
     check(full_canvas, game_id .. ": background did not cover the 240x160 GBA screen")
-    local used_gba_font = false
-    local legacy_text_calls = 0
+    local used_native_pixel_font = false
+    local default_font_calls = 0
     for _, item in ipairs(env.drawn) do
-        if item.font_size == 8 then
-            used_gba_font = true
-        else
-            legacy_text_calls = legacy_text_calls + 1
+        if item.renderer == "mod.ui.Font" then
+            used_native_pixel_font = true
+        end
+        if item.font_size ~= nil then
+            default_font_calls = default_font_calls + 1
         end
     end
-    check(used_gba_font, game_id .. ": GBA screen did not use its dedicated pixel font")
-    check(legacy_text_calls == 0,
-        game_id .. ": GBA screen still called the legacy Game Boy font renderer")
+    check(used_native_pixel_font,
+        game_id .. ": GBA screen did not use the engine's pixel-font renderer")
+    check(default_font_calls == 0,
+        game_id .. ": GBA screen used the antialiased default LÖVE font")
     check(love.graphics.getFont() == original_font,
         game_id .. ": GBA achievement screen leaked its font")
 
