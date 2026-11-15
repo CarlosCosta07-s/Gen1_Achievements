@@ -1,3 +1,12 @@
+## 0.5.23 — Menu de batalha com recursos nativos
+
+- Substituída a camada de cartões vetoriais e fonte genérica por uma camada de navegação que reutiliza fonte, moldura, paleta, cursor e posicionamento do jogo ativo.
+- Gen 1 usa a fonte e as caixas de Game Boy; Gen 2 usa a fonte e o Chrome de Game Boy Color; Gen 3 resolve o perfil e a fonte do título e usa molduras/cursor específicos de FRLG, Ruby/Sapphire e Emerald.
+- A seleção de golpes preserva nomes mais longos, tipo e PP nas áreas de informação da interface original, sem ampliar a fonte nem cobrir sprites de Pokémon com painéis genéricos.
+- O seletor de alvos da Gen 3 usa os elementos nativos e mostra apenas dados fornecidos pelo snapshot público, mantendo a seleção pelo ID original do battler.
+- Se os módulos nativos de um jogo não estiverem disponíveis, o painel original do motor permanece visível em vez de ser ocultado por uma interface incompleta.
+- Atualizados os testes de regressão para conferir os pontos de entrada nativos de fonte, moldura, cursor e perfis dos onze títulos, além das intenções de batalha.
+
 ## 0.5.22 — Distribuição unificada do mod
 
 - Removido o pacote independente Fullscreen Fit do fluxo de distribuição; o ajuste de viewport já faz parte de `main.lua` e do ZIP principal do Gen1 Achievements.
