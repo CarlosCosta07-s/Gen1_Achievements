@@ -44,9 +44,9 @@ love.graphics.newFont = function(source, size, hinting, dpiScale)
             local byte = tostring(value or ""):byte(index)
             if byte < 0x80 or byte >= 0xC0 then count = count + 1 end
         end
-        return count * 5
+        return count * self.size * 0.52
     end
-    function font:getHeight() return 11 end
+    function font:getHeight() return self.size end
     fake_fonts_created[#fake_fonts_created + 1] = font
     return font
 end
@@ -68,6 +68,8 @@ love.graphics.print = function(value, x, y)
         font_hinting = fake_graphics_font and fake_graphics_font.hinting,
         font_dpi_scale = fake_graphics_font and fake_graphics_font.dpiScale,
         font_width = font_width,
+        font_height = fake_graphics_font and type(fake_graphics_font.getHeight) == "function"
+            and fake_graphics_font:getHeight() or nil,
     }
 end
 love.graphics.rectangle = function(mode, x, y, width, height)
@@ -880,14 +882,18 @@ for game_id, game_title in pairs(game_titles) do
             or game_id == "ruby" or game_id == "sapphire" or game_id == "emerald"
         if is_gen3 then
             for _, item in ipairs(env.drawn) do
+                local valid_size = item.font_size == 8 or item.font_size == 9
+                    or item.font_size == 10 or item.font_size == 11
+                    or item.font_size == 15
                 check(item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
-                    and item.font_size == 15 and item.font_hinting == "mono"
-                    and item.font_dpi_scale == 1 and type(item.font_width) == "number",
-                    game_id .. "/" .. language .. ": a GBA label bypassed Plain Pixel metrics")
+                    and valid_size and item.font_hinting == "mono"
+                    and item.font_dpi_scale == 1 and type(item.font_width) == "number"
+                    and type(item.font_height) == "number",
+                    game_id .. "/" .. language .. ": a GBA label bypassed its role-specific Plain Pixel font")
                 local limit = 210
-                if item.x == 31 and item.y >= 79 and item.y < 145 then
+                if item.x == 31 and item.y >= 81 and item.y < 141 then
                     limit = 194
-                elseif item.x == 16 and item.y == 47 then
+                elseif item.x == 16 and item.y == 46 then
                     limit = 144
                 elseif item.x == 18 then
                     limit = 12
@@ -895,6 +901,8 @@ for game_id, game_title in pairs(game_titles) do
                 check(item.font_width <= limit,
                     game_id .. "/" .. language .. ": text exceeded its pixel width budget at x="
                         .. tostring(item.x) .. ", y=" .. tostring(item.y))
+                check(item.y + item.font_height <= 153,
+                    game_id .. "/" .. language .. ": text escaped the GBA panel vertically")
             end
         end
 
@@ -938,15 +946,20 @@ local function check_gen3_screen(game_id, version_field)
 
     local font_count_before = #fake_fonts_created
     local screen = env.screens[screen_id].new(env.game)
-    check(#fake_fonts_created == font_count_before + 1,
-        game_id .. ": GBA screen did not create its dedicated pixel font")
-    local gen3_font = fake_fonts_created[#fake_fonts_created]
-    check(gen3_font.source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
-        and gen3_font.size == 15 and gen3_font.hinting == "mono"
-        and gen3_font.dpiScale == 1,
-        game_id .. ": GBA screen did not use Plain Pixel at its native design size")
-    check(gen3_font.minFilter == "nearest" and gen3_font.magFilter == "nearest",
-        game_id .. ": GBA pixel font did not use nearest filtering")
+    check(#fake_fonts_created == font_count_before + 8,
+        game_id .. ": GBA screen did not create all role-specific pixel fonts")
+    local expected_font_sizes = {
+        title = 15, heading = 11, summary = 8, filter = 9,
+        list = 10, detail = 10, description = 9, small = 8,
+    }
+    for role, size in pairs(expected_font_sizes) do
+        local font = screen.gen3_fonts and screen.gen3_fonts[role]
+        check(font ~= nil and font.source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
+            and font.size == size and font.hinting == "mono" and font.dpiScale == 1,
+            game_id .. ": GBA " .. role .. " did not use its dedicated Plain Pixel size")
+        check(font.minFilter == "nearest" and font.magFilter == "nearest",
+            game_id .. ": GBA " .. role .. " font did not use nearest filtering")
+    end
     check(screen.gbaCanvas == true,
         game_id .. ": Gen 3 screen did not request the full GBA canvas")
     local original_font = love.graphics.getFont()
@@ -970,19 +983,25 @@ local function check_gen3_screen(game_id, version_field)
         end
     end
     check(full_canvas, game_id .. ": background did not cover the 240x160 GBA screen")
-    local used_pixel_font = false
+    local used_roles = {}
     local wrong_font_calls = 0
     for _, item in ipairs(env.drawn) do
         if item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
-            and item.font_size == 15 and item.font_hinting == "mono"
-            and item.font_dpi_scale == 1 then
-            used_pixel_font = true
+            and expected_font_sizes.title == 15
+            and item.font_hinting == "mono" and item.font_dpi_scale == 1 then
+            used_roles[item.font_size] = true
+            check(type(item.font_width) == "number" and item.font_width <= 210,
+                game_id .. ": GBA label exceeded the 210px panel width")
+            check(type(item.font_height) == "number"
+                and item.y + item.font_height <= 153,
+                game_id .. ": GBA label escaped the panel vertically")
         else
             wrong_font_calls = wrong_font_calls + 1
         end
     end
-    check(used_pixel_font,
-        game_id .. ": GBA screen did not render labels with Plain Pixel")
+    check(used_roles[15] and used_roles[11] and used_roles[10]
+        and used_roles[9] and used_roles[8],
+        game_id .. ": GBA screen did not use all five text sizes")
     check(wrong_font_calls == 0,
         game_id .. ": GBA screen rendered labels with a non-pixel font")
     check(love.graphics.getFont() == original_font,
@@ -1008,13 +1027,23 @@ local function check_gen3_screen(game_id, version_field)
     check(rendered:find("BLOQUEADA", 1, true) ~= nil
         and rendered:find("B: VOLTAR", 1, true) ~= nil,
         game_id .. ": A did not open an achievement detail on the GBA screen")
+    local detail_description_lines = 0
     for _, item in ipairs(env.drawn) do
         if item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf" then
-            local limit = item.x == 16 and 208 or 198
+            local limit = item.x == 19 and 198 or 208
             check(item.font_width <= limit,
                 game_id .. ": detail text exceeded the GBA pixel width budget")
+            check(item.y + item.font_height <= 153,
+                game_id .. ": detail text escaped the panel vertically")
+            if item.y >= 95 and item.y <= 125 and item.x == 16 then
+                detail_description_lines = detail_description_lines + 1
+                check(item.font_size == 9,
+                    game_id .. ": description did not use the compact detail font")
+            end
         end
     end
+    check(detail_description_lines >= 1 and detail_description_lines <= 4,
+        game_id .. ": detail description did not respect its four-line budget")
 
     env:press("b")
     screen:update(0)
