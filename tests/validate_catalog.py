@@ -26,6 +26,33 @@ GEN2_EVENTS = {
     "egg.hatched", "pokerus.infected", "happiness.changed",
 }
 GEN3_EVENTS = {"egg.hatched", "pokerus.infected", "happiness.changed"}
+# One signature objective per title. These assertions make the catalog's
+# per-game identity a checked contract rather than a naming convention.
+SIGNATURES = {
+    "red": ("red_electabuzz_captured",
+            ("pokemon.caught", "species", "equals", "ELECTABUZZ", "instant", "")),
+    "blue": ("blue_magmar_captured",
+             ("pokemon.caught", "species", "equals", "MAGMAR", "instant", "")),
+    "yellow": ("yellow_pikachu_growth_15",
+               ("pokemon.level_up", "mon.species", "equals", "PIKACHU", "counter", "15")),
+    "gold": ("gold_mankey_captured",
+             ("pokemon.caught", "species", "equals", "MANKEY", "instant", "")),
+    "silver": ("silver_delibird_captured",
+               ("pokemon.caught", "species", "equals", "DELIBIRD", "instant", "")),
+    "crystal": ("crystal_battle_tower_entered",
+                ("map.entered", "mapId", "ends_with", "BATTLE_TOWER_1F", "instant", "")),
+    "firered": ("firered_wooper_captured",
+                ("pokemon.caught", "species", "equals", "WOOPER", "instant", "")),
+    "leafgreen": ("leafgreen_slowpoke_captured",
+                  ("pokemon.caught", "species", "equals", "SLOWPOKE", "instant", "")),
+    "ruby": ("ruby_zangoose_captured",
+             ("pokemon.caught", "species", "equals", "ZANGOOSE", "instant", "")),
+    "sapphire": ("sapphire_seviper_captured",
+                 ("pokemon.caught", "species", "equals", "SEVIPER", "instant", "")),
+    "emerald": ("emerald_battle_frontier_tower_entered",
+                ("map.entered", "mapId", "ends_with",
+                 "BATTLE_FRONTIER_BATTLE_TOWER_LOBBY", "instant", "")),
+}
 SUPPORTED_EVENTS = {}
 for game in ("red", "blue", "yellow"):
     SUPPORTED_EVENTS[game] = BASE_EVENTS
@@ -151,12 +178,36 @@ def validate_catalog() -> int:
 
     for game in GAMES:
         count = len(ids_by_game[game])
-        assert 17 <= count <= 20, (
-            f"{game}: expected a balanced catalog of 17–20 achievements, got {count}"
+        assert 19 <= count <= 20, (
+            f"{game}: expected 19–20 achievements including its signature goal, got {count}"
         )
         assert catalog_data["games"][game] == ids_by_game[game], (
             f"{game}: JSON index does not match achievements.tsv"
         )
+
+    rows_by_id = {}
+    with (ROOT / "data/achievements.tsv").open("r", encoding="utf-8") as handle:
+        for raw in handle:
+            line = raw.rstrip("\\r\\n")
+            if not line or line.startswith("#"):
+                continue
+            fields = line.split("\\t")
+            rows_by_id[fields[1]] = fields
+    signature_contracts = set()
+    for game in GAMES:
+        achievement_id, expected = SIGNATURES[game]
+        assert achievement_id in ids_by_game[game], (
+            f"{game}: missing its own signature achievement {achievement_id}"
+        )
+        row = rows_by_id[achievement_id]
+        observed = tuple(row[index] for index in (2, 3, 4, 5, 6, 7))
+        assert observed == expected, (
+            f"{game}: signature objective {achievement_id} changed its event condition"
+        )
+        signature_contracts.add(observed)
+    assert len(signature_contracts) == len(GAMES), (
+        "each game must have a distinct event condition for its signature achievement"
+    )
 
     # Limited-time distribution and online-only events are intentionally not
     # admitted in the event allowlist above.
