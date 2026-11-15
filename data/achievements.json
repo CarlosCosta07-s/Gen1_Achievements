@@ -25,7 +25,8 @@
       "red_seafoam_explored",
       "red_power_plant_explored",
       "red_cerulean_cave_explored",
-      "red_snorlax_captured"
+      "red_snorlax_captured",
+      "red_electabuzz_captured"
     ],
     "blue": [
       "blue_dex_10",
@@ -45,7 +46,8 @@
       "blue_seafoam_explored",
       "blue_power_plant_explored",
       "blue_cerulean_cave_explored",
-      "blue_snorlax_captured"
+      "blue_snorlax_captured",
+      "blue_magmar_captured"
     ],
     "yellow": [
       "yellow_dex_10",
@@ -65,7 +67,8 @@
       "yellow_seafoam_explored",
       "yellow_power_plant_explored",
       "yellow_cerulean_cave_explored",
-      "yellow_snorlax_captured"
+      "yellow_snorlax_captured",
+      "yellow_pikachu_growth_15"
     ],
     "gold": [
       "gold_dex_10",
@@ -86,7 +89,8 @@
       "gold_friendship",
       "gold_ruins_of_alph_explored",
       "gold_tin_tower_explored",
-      "gold_dragons_den_explored"
+      "gold_dragons_den_explored",
+      "gold_mankey_captured"
     ],
     "silver": [
       "silver_dex_10",
@@ -107,7 +111,8 @@
       "silver_friendship",
       "silver_ruins_of_alph_explored",
       "silver_tin_tower_explored",
-      "silver_dragons_den_explored"
+      "silver_dragons_den_explored",
+      "silver_delibird_captured"
     ],
     "crystal": [
       "crystal_dex_10",
@@ -128,7 +133,8 @@
       "crystal_friendship",
       "crystal_ruins_of_alph_explored",
       "crystal_tin_tower_explored",
-      "crystal_dragons_den_explored"
+      "crystal_dragons_den_explored",
+      "crystal_battle_tower_entered"
     ],
     "firered": [
       "firered_dex_10",
@@ -148,7 +154,8 @@
       "firered_icefall_cave_explored",
       "firered_tanoby_ruins_explored",
       "firered_trainer_tower_explored",
-      "firered_mt_ember_moltres"
+      "firered_mt_ember_moltres",
+      "firered_wooper_captured"
     ],
     "leafgreen": [
       "leafgreen_dex_10",
@@ -169,7 +176,8 @@
       "leafgreen_icefall_cave_explored",
       "leafgreen_tanoby_ruins_explored",
       "leafgreen_trainer_tower_explored",
-      "leafgreen_mt_ember_magmar"
+      "leafgreen_mt_ember_magmar",
+      "leafgreen_slowpoke_captured"
     ],
     "ruby": [
       "ruby_dex_10",
@@ -190,7 +198,8 @@
       "ruby_ancient_tomb_explored",
       "ruby_sky_pillar_explored",
       "ruby_seafloor_cavern_explored",
-      "ruby_continent_awakens"
+      "ruby_continent_awakens",
+      "ruby_zangoose_captured"
     ],
     "sapphire": [
       "sapphire_dex_10",
@@ -211,7 +220,8 @@
       "sapphire_ancient_tomb_explored",
       "sapphire_sky_pillar_explored",
       "sapphire_seafloor_cavern_explored",
-      "sapphire_too_much_water"
+      "sapphire_too_much_water",
+      "sapphire_seviper_captured"
     ],
     "emerald": [
       "emerald_dex_10",
@@ -232,7 +242,8 @@
       "emerald_ancient_tomb_explored",
       "emerald_sky_pillar_explored",
       "emerald_seafloor_cavern_explored",
-      "emerald_sky_pillar_peacekeeper"
+      "emerald_sky_pillar_peacekeeper",
+      "emerald_battle_frontier_tower_entered"
     ]
   }
 }
