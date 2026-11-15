@@ -1704,7 +1704,7 @@ local normalizedPpText = {}
 for _, call in ipairs(battle_draw_calls) do
     if call.kind == "text" then normalizedPpText[#normalizedPpText + 1] = call.value end
 end
-check(table.concat(normalizedPpText, "\n"):find("0/0", 1, true) ~= nil,
+check(table.concat(normalizedPpText, "\n"):find("0/ 0", 1, true) ~= nil,
     "normalized missing PP was not visible in the native info window")
 normalized_pp_env:run_hook(
     "input.key", nil, normalized_pp_env.game, { phase = "pressed", key = "z" }
