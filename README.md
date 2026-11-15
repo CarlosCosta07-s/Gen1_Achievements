@@ -7,7 +7,7 @@ Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRe
 ## Experiência dentro do jogo
 
 - Nova opção compacta **CONQ.** no menu START, posicionada antes de OPTIONS; o título completo aparece dentro da tela.
-- Menu de batalha redesenhado pelo mod com referência estrutural em Pokémon Black/White e variação visual por título, incluindo os seletores especiais Mimic e Safari Zone de Gen 1.
+- Menu de batalha integrado aos recursos gráficos nativos de cada jogo: fonte, moldura, cursor, paleta e posicionamento específicos de Gen 1, Gen 2, FireRed/LeafGreen, Ruby/Sapphire e Emerald. O mod mantém a navegação e os dados adicionais sem substituir a identidade visual dos jogos por cartões genéricos; inclui os seletores Mimic e Safari Zone de Gen 1.
 - Tela de conquistas com navegação pelo D-pad e botões A/B/START; em Gen 3, usa a área GBA completa (240×160). O título e o nome do jogo mantêm a fonte Plain Pixel, enquanto resumo, filtros, lista, descrições e controles usam uma fonte sem serifa maior e mais simples. Descrições ocupam até três linhas, o progresso de conquistas incrementais fica junto ao status e o rodapé permanece dentro da moldura.
 - Filtros All / Unlocked / Locked, com instrução de navegação no rodapé.
 - Detalhes e descrições das conquistas.
@@ -21,13 +21,21 @@ As opções do Gen1 Achievements ficam no **gerenciador de MODS dentro do jogo**
 
 ## Configurações dos jogos
 
-O mod reorganiza as opções nativas e as ações comuns dos submenus da equipe, sem redesenhar esses menus. Fontes, cores, molduras, ícones, animações e controles nativos permanecem intactos; movimentos de campo e entradas de outros mods mantêm suas posições. A única interface refeita integralmente é o menu de batalha, que tem uma composição própria e onze variações de tema.
+O mod reorganiza as opções nativas e as ações comuns dos submenus da equipe, sem redesenhar esses menus. Fontes, cores, molduras, ícones, animações e controles nativos permanecem intactos; movimentos de campo e entradas de outros mods mantêm suas posições. O menu de batalha tem uma camada de navegação própria, mas utiliza os recursos de interface que o Gen1Recomp já carrega para o jogo selecionado.
 
 ## Menu de batalha
 
-A nova interface usa uma bandeja escura e cartões claros, com hierarquia inspirada em Pokémon Black/White. Cada jogo usa um acento cromático e acabamento próprios: Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire e Emerald. A seleção mostra nome, tipo e PP dos golpes e oferece alvos nas batalhas duplas quando a API fornece esses dados. Os cartões de alvo exibem barras compactas de HP, indicadores coloridos para condições de estado reconhecidas e um destaque claro para o cartão atualmente percorrido pelo cursor. O mod não classifica alvos como indisponíveis sem um dado público do motor que sustente essa decisão. Em batalhas duplas, o painel identifica o Pokémon que está comandando, exibe seu HP atual em uma barra compacta quando os dados públicos estão disponíveis e diferencia o aliado dos adversários; a troca de equipe continua nativa.
+O menu de batalha mantém a identidade de cada jogo. A moldura, a fonte, o cursor, a paleta e o posicionamento são chamados dos módulos originais de interface já carregados pelo Gen1Recomp para o título ativo:
 
-O mod não inclui sprites, fontes ou recursos extraídos de Black/White. Ele envia escolhas semânticas para o motor por meio da API pública de batalha. A navegação funciona com teclado, gamepad, controles virtuais Android/iOS e toque direto; toques são descartados quando o painel visível pertence a uma revisão/fase anterior da batalha. A mochila, a equipe, a execução dos golpes e as regras do combate continuam nativas. Rejeições específicas de alvo retornadas pelo motor recebem avisos localizados no painel, sem tentar antecipar as regras de cada golpe. Seleção forçada de equipe e mensagens também permanecem sob controle do jogo. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md).
+- **Gen 1:** fonte pixelada nativa, caixas de texto e glifo de cursor do renderizador de Game Boy.
+- **Gen 2:** fonte e molduras com paleta nativa do Chrome de Game Boy Color.
+- **FireRed e LeafGreen:** fonte do perfil FRLG, painel GBA e cursor do jogo.
+- **Ruby e Sapphire:** recursos do perfil Ruby/Sapphire e o cursor específico dessa família.
+- **Emerald:** fonte, janelas e posicionamento próprios de Emerald.
+
+A camada do mod organiza as escolhas e adiciona os dados necessários ao fluxo de batalha; não substitui a arte original por cartões vetoriais, não aumenta a fonte do jogo e não distribui sprites, fontes, molduras ou outros arquivos extraídos de ROM. Os recursos são resolvidos em tempo de execução a partir do próprio Gen1Recomp. Caso os módulos nativos de um título não estejam disponíveis, o mod deixa o painel original visível em vez de ocultá-lo e desenhar uma interface incompleta.
+
+A navegação mantém as intenções semânticas da API pública de batalha. O menu de golpes mostra nome, tipo e PP na área correspondente ao layout original; golpes sem PP ou com PP zero continuam desabilitados. Na terceira geração, a seleção de alvos usa a fonte, a moldura e o cursor nativos e mostra somente informações fornecidas pelo snapshot público, sem estimar valores. Batalhas duplas identificam o Pokémon ativo quando o motor oferece esse dado. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md) para os layouts por geração, limitações e controles.
 
 ## Ajuste de tela integrado
 
