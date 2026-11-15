@@ -142,7 +142,7 @@ Esta rodada acrescenta um objetivo de assinatura a cada jogo. O objetivo não é
 ### Pokémon FireRed e LeafGreen
 
 - **A Visitor from Johto** — captura de Wooper em FireRed, espécie exclusiva dessa versão no par FireRed/LeafGreen. Referência: https://www.poketools.com/firered/version-exclusives
-- **The Slowpoke of Seafoam** — captura de Slowpoke em LeafGreen, espécie exclusiva dessa versão no par FireRed/LeafGreen. Referência: https://www.poketools.com/leafgreen/version-exclusives
+- **The Slowpoke of Seafoam** — captura de Slowpoke em LeafGreen, espécie exclusiva dessa versão no par FireRed/LeafGreen. Referência: https://bulbapedia.bulbagarden.net/wiki/LeafGreen_Version
 
 ### Pokémon Ruby, Sapphire e Emerald
 
