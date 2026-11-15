@@ -1,3 +1,10 @@
+## 0.5.17 — Texto nítido na tela de conquistas da Gen 3
+
+- Substituída a fonte padrão do LÖVE em 8 px pela fonte Plain Pixel incluída no motor, carregada no tamanho de projeto de 15 px.
+- Aplicados hinting mono, escala DPI 1 e filtro nearest para preservar a grade de pixels no canvas GBA de 240×160 e evitar a suavização do texto.
+- Restaurada a fonte gráfica anterior depois de desenhar a tela para não alterar a tipografia de outras telas.
+- Ampliado o runtime harness para verificar a fonte, o tamanho, o hinting, a escala DPI e os filtros nos cinco jogos da terceira geração.
+
 ## 0.5.15 — Correções de interface móvel e tela de conquistas
 
 - Corrigida a cor de texto da tela de conquistas: após desenhar o painel branco, o mod define texto preto e restaura o estado gráfico anterior; falhas de desenho são isoladas e registradas.
