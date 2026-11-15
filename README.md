@@ -2,13 +2,13 @@
 
 Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen, Ruby, Sapphire e Emerald no Gen1Recomp.
 
-> **Estado:** catálogo expandido para 17–20 conquistas por jogo, com progressão por eventos reais, três idiomas e proteção contra desbloqueios retroativos obtidos por edição do save.
+> **Estado:** catálogo com 216 conquistas (19–20 por jogo), objetivos de assinatura próprios para os onze títulos, três idiomas e proteção contra desbloqueios retroativos obtidos por edição do save.
 
 ## Experiência dentro do jogo
 
 - Nova opção compacta **CONQ.** no menu START, posicionada antes de OPTIONS; o título completo aparece dentro da tela.
 - Menu de batalha redesenhado pelo mod com referência estrutural em Pokémon Black/White e variação visual por título, incluindo os seletores especiais Mimic e Safari Zone de Gen 1.
-- Tela de conquistas com navegação pelo D-pad e botões A/B/START; em Gen 3, usa a área GBA completa (240×160) e a fonte pixelada Plain Pixel do próprio motor, no tamanho de projeto de 15 px e com filtro nearest, evitando a suavização da fonte padrão do LÖVE.
+- Tela de conquistas com navegação pelo D-pad e botões A/B/START; em Gen 3, usa a área GBA completa (240×160), Plain Pixel de 15 px com hinting mono, DPI 1 e filtro nearest. A quebra de linhas e o truncamento usam as métricas reais dessa fonte, evitando texto borrado ou cortado em PC e Android.
 - Filtros All / Unlocked / Locked, com instrução de navegação no rodapé.
 - Detalhes e descrições das conquistas.
 - Contadores de progresso para conquistas incrementais.
@@ -56,7 +56,7 @@ O idioma escolhido no gerenciador de MODS dentro do jogo controla os textos da t
 
 `data/achievements.tsv` é a fonte de dados executada pelo mod. Cada linha declara jogo, id, evento, condição (inclusive caminhos aninhados como `mon.species`), tipo de progresso, se é secreta, título e descrição nos três idiomas.
 
-Cada jogo contém entre 17 e 20 conquistas de Pokédex, evolução, batalhas, insígnias, história, exploração e recursos próprios da geração. Johto inclui os dois circuitos de ginásios, além de Unown, Bug-Catching Contest, Apricorns, ovos e Pokérus; Hoenn inclui os Regis, os Pokémon errantes, fitas e ovos; FireRed/LeafGreen incluem o conteúdo normal das Ilhas Sevii. Nenhuma conquista depende de Mystery Gift, tickets de distribuição, ilhas temporárias, trocas online ou link play.
+Cada jogo contém entre 19 e 20 conquistas de Pokédex, evolução, batalhas, insígnias, história, exploração e recursos próprios da geração. Além dos marcos gerais, cada título possui uma conquista de assinatura com uma condição própria: Electabuzz (Red), Magmar (Blue), crescimento do Pikachu parceiro (Yellow), Mankey (Gold), Delibird (Silver), Battle Tower (Crystal), Wooper (FireRed), Slowpoke (LeafGreen), Zangoose (Ruby), Seviper (Sapphire) e acesso à Battle Tower da Battle Frontier (Emerald). Johto inclui os dois circuitos de ginásios, além de Unown, Bug-Catching Contest, Apricorns, ovos e Pokérus; Hoenn inclui os Regis, os Pokémon errantes, fitas e ovos; FireRed/LeafGreen incluem o conteúdo normal das Ilhas Sevii. Nenhuma conquista depende de Mystery Gift, tickets de distribuição, ilhas temporárias, trocas online ou link play.
 
 ## Arquivos principais
 
@@ -82,9 +82,9 @@ luajit -b main.lua /tmp/gen1-achievements.luac
 luajit tests/runtime_harness.lua
 ```
 
-O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores e limites equilibrados de 17–20 conquistas por jogo. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
+O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores, limites de 19–20 conquistas por jogo e a existência de onze objetivos de assinatura com condições distintas. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
 
-O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 205 linhas do catálogo. Também executa os hooks do menu START, das opções gerais e do submenu da equipe, verificando a ordenação de ações e a preservação de movimentos de campo e itens de outros mods. A camada visual percorre a tela de conquistas nos onze títulos e três idiomas, incluindo os cinco jogos de Gen 3 com o formato real de sessão (`generation = 3`, `save = nil`, `session.version`) e verifica a fonte Plain Pixel de 15 px, hinting mono, escala DPI 1 e filtragem nearest. Para o menu de batalha, snapshots sintéticos verificam os quatro comandos, golpes com tipo e PP, Mimic e Safari em Gen 1, alvos de duplas e IDs esparsos, atualização da lista de alvos, descarte de comandos e toques após mudança de fase/revisão, avisos de alvos rejeitados em três idiomas, retorno com B, passagem nativa por seleção forçada de equipe/mensagens, toque, cores e variações por título. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
+O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 216 linhas do catálogo. Também executa os hooks do menu START, das opções gerais e do submenu da equipe, verificando a ordenação de ações e a preservação de movimentos de campo e itens de outros mods. A camada visual percorre a tela de conquistas nos onze títulos e três idiomas, incluindo os cinco jogos de Gen 3 com o formato real de sessão (`generation = 3`, `save = nil`, `session.version`) e verifica a fonte Plain Pixel de 15 px, hinting mono, escala DPI 1 e filtragem nearest. Para o menu de batalha, snapshots sintéticos verificam os quatro comandos, golpes com tipo e PP, Mimic e Safari em Gen 1, alvos de duplas e IDs esparsos, atualização da lista de alvos, descarte de comandos e toques após mudança de fase/revisão, avisos de alvos rejeitados em três idiomas, retorno com B, passagem nativa por seleção forçada de equipe/mensagens, toque, cores e variações por título. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
 
 Esses testes automatizados não substituem testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 
