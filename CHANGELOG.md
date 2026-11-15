@@ -1,3 +1,16 @@
+## 0.5.19 — Addon Fullscreen Fit com proporção preservada
+
+- Adicionado o addon independente Fullscreen Fit — Aspect Ratio em `addons/fullscreen_fit`, usando exclusivamente o hook público `render.viewport` da Portable Mod API 3.
+- O addon maximiza o retângulo de jogo disponível sem deformar a imagem: 10:9 para Gen 1/2 e 3:2 para Gen 3.
+- O enquadramento fica centralizado, com barras laterais ou superior/inferior quando a proporção da janela não corresponde à do jogo, sem cortar a área de jogo.
+- O cálculo considera DPI físico, orientação retrato/paisagem e retângulos de viewport fornecidos por outros mods; pedidos de composição `capture` são preservados.
+- Os controles virtuais continuam em coordenadas da janela inteira e não são encolhidos com a imagem do jogo.
+- Criados testes sem ROM para desktop, Android retrato/paisagem, alta densidade de pixels, viewport composto e fallback de gerações desconhecidas.
+- A validação CI agora verifica a sintaxe LuaJIT e executa o harness do addon.
+- A publicação passa a anexar um ZIP autônomo do Fullscreen Fit e seu checksum SHA-256, separado do pacote Gen1 Achievements.
+
+**Limite:** o addon maximiza a área de jogo dentro da janela disponível. No PC, a troca da própria janela para Fullscreen/Borderless continua sendo controlada pelo modo de vídeo nativo do Gen1Recomp.
+
 ## 0.5.18 — Objetivos de assinatura por jogo e texto GBA com métricas reais
 
 - Adicionadas onze conquistas de assinatura, uma para cada título: Electabuzz em Red, Magmar em Blue, progressão do Pikachu parceiro em Yellow, Mankey em Gold, Delibird em Silver, Battle Tower em Crystal, Wooper em FireRed, Slowpoke em LeafGreen, Zangoose em Ruby, Seviper em Sapphire e entrada na Battle Tower da Battle Frontier em Emerald.
