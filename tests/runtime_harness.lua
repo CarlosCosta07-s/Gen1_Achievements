@@ -38,14 +38,28 @@ love.graphics.newFont = function(source, size, hinting, dpiScale)
         self.minFilter = minFilter
         self.magFilter = magFilter
     end
+    function font:getWidth(value)
+        local count = 0
+        for index = 1, #tostring(value or "") do
+            local byte = tostring(value or ""):byte(index)
+            if byte < 0x80 or byte >= 0xC0 then count = count + 1 end
+        end
+        return count * 5
+    end
+    function font:getHeight() return 11 end
     fake_fonts_created[#fake_fonts_created + 1] = font
     return font
 end
 love.graphics.print = function(value, x, y)
     if not ui_draw_target then return end
     local r, g, b, a = love.graphics.getColor()
+    local printed = tostring(value)
+    local font_width
+    if fake_graphics_font and type(fake_graphics_font.getWidth) == "function" then
+        font_width = fake_graphics_font:getWidth(printed)
+    end
     ui_draw_target[#ui_draw_target + 1] = {
-        text = tostring(value),
+        text = printed,
         x = x,
         y = y,
         color = { r, g, b, a },
@@ -53,6 +67,7 @@ love.graphics.print = function(value, x, y)
         font_source = fake_graphics_font and fake_graphics_font.source,
         font_hinting = fake_graphics_font and fake_graphics_font.hinting,
         font_dpi_scale = fake_graphics_font and fake_graphics_font.dpiScale,
+        font_width = font_width,
     }
 end
 love.graphics.rectangle = function(mode, x, y, width, height)
@@ -861,6 +876,28 @@ for game_id, game_title in pairs(game_titles) do
         check(rendered:find(expected.help, 1, true) ~= nil,
             game_id .. "/" .. language .. ": filter control hint was not localized")
 
+        local is_gen3 = game_id == "firered" or game_id == "leafgreen"
+            or game_id == "ruby" or game_id == "sapphire" or game_id == "emerald"
+        if is_gen3 then
+            for _, item in ipairs(env.drawn) do
+                check(item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
+                    and item.font_size == 15 and item.font_hinting == "mono"
+                    and item.font_dpi_scale == 1 and type(item.font_width) == "number",
+                    game_id .. "/" .. language .. ": a GBA label bypassed Plain Pixel metrics")
+                local limit = 210
+                if item.x == 31 and item.y >= 79 and item.y < 145 then
+                    limit = 194
+                elseif item.x == 16 and item.y == 47 then
+                    limit = 144
+                elseif item.x == 18 then
+                    limit = 12
+                end
+                check(item.font_width <= limit,
+                    game_id .. "/" .. language .. ": text exceeded its pixel width budget at x="
+                        .. tostring(item.x) .. ", y=" .. tostring(item.y))
+            end
+        end
+
         local items = {
             { label = "SAVE" },
             { label = "OPTION" },
@@ -971,6 +1008,13 @@ local function check_gen3_screen(game_id, version_field)
     check(rendered:find("BLOQUEADA", 1, true) ~= nil
         and rendered:find("B: VOLTAR", 1, true) ~= nil,
         game_id .. ": A did not open an achievement detail on the GBA screen")
+    for _, item in ipairs(env.drawn) do
+        if item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf" then
+            local limit = item.x == 16 and 208 or 198
+            check(item.font_width <= limit,
+                game_id .. ": detail text exceeded the GBA pixel width budget")
+        end
+    end
 
     env:press("b")
     screen:update(0)
