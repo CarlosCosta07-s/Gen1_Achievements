@@ -77,12 +77,18 @@ def valid_field_path(value: str) -> bool:
 
 def validate_catalog() -> int:
     manifest = load_json("manifest.json")
+    fullscreen_fit = load_json("addons/fullscreen_fit/manifest.json")
     games_data = load_json("data/games.json")
     catalog_data = load_json("data/achievements.json")
     locales = load_json("data/ui_locales.json")
 
     assert manifest.get("api") == 3, "manifest must target Portable Mod API 3"
     assert manifest.get("games") == GAMES, "manifest must list all eleven games"
+    assert fullscreen_fit.get("id") == "fullscreen_fit"
+    assert fullscreen_fit.get("api") == 3
+    assert fullscreen_fit.get("entry") == "main.lua"
+    assert fullscreen_fit.get("games") == ["all"]
+    assert fullscreen_fit.get("version") == "1.0.0"
     assert [row.get("id") for row in games_data.get("games", [])] == GAMES
     assert catalog_data.get("catalog_source") == "achievements.tsv"
     assert list(catalog_data.get("games", {}).keys()) == GAMES
