@@ -2220,13 +2220,12 @@ return function(mod)
                 local count = isTarget and #(snapshot.targets or {}) or #entries
                 if assets.layout == "emerald" then
                     local W = assets.chrome.WIN or {}
-                    local x, firstY = assets.chrome.textOrigin(W.MOVE_NAME_1)
                     for i = 1, math.min(4, count) do
                         local row, column = math.floor((i - 1) / 2), (i - 1) % 2
-                        local y = firstY + 16 * row
+                        local x, y = assets.chrome.textOrigin(W.MOVE_NAME_1 + i - 1)
                         local cursorX = 8 * (9 * column + 1)
-                        add_native_battle_button(buttons, i, x + 72 * column,
-                            y, cursorX, y, 72, 16)
+                        add_native_battle_button(buttons, i, x, y,
+                            cursorX, y, 72, 16)
                     end
                 elseif assets.layout == "rs" then
                     local positions = {
@@ -2365,7 +2364,7 @@ return function(mod)
         local label = (dictionary.battle_active or "ATIVO") .. ": " .. name
         local hp, maximum = battle_hp_values(snapshot.player)
         if hp ~= nil and maximum ~= nil then
-            label = label .. (" %d/%d"):format(hp, maximum)
+            label = label .. (" HP %d/%d"):format(hp, maximum)
         end
         native_battle_text(assets, clip_text(label, 28, mod.ui.Font),
             8, 112, assets.generation == 3 and { small = true } or nil)
