@@ -69,7 +69,10 @@ jobs:
           PACKAGE="Gen1_Achievements-$VERSION"
           ZIP_NAME="gen1-achievements-$VERSION.zip"
           CHECKSUM_NAME="$ZIP_NAME.sha256"
-          python3 - "$VERSION" "$RUNNER_TEMP/$ZIP_NAME" "$RUNNER_TEMP/$CHECKSUM_NAME" <<'PY'
+          ADDON_VERSION="$(python3 -c 'import json; print(json.load(open("addons/fullscreen_fit/manifest.json", encoding="utf-8"))["version"])')"
+          ADDON_ZIP_NAME="fullscreen-fit-$ADDON_VERSION.zip"
+          ADDON_CHECKSUM_NAME="$ADDON_ZIP_NAME.sha256"
+          python3 - "$VERSION" "$RUNNER_TEMP/$ZIP_NAME" "$RUNNER_TEMP/$CHECKSUM_NAME" "$RUNNER_TEMP/$ADDON_ZIP_NAME" "$RUNNER_TEMP/$ADDON_CHECKSUM_NAME" <<'PY'
           import hashlib
           import pathlib
           import sys
@@ -78,6 +81,9 @@ jobs:
           version = sys.argv[1]
           archive_path = pathlib.Path(sys.argv[2])
           checksum_path = pathlib.Path(sys.argv[3])
+          addon_archive_path = pathlib.Path(sys.argv[4])
+          addon_checksum_path = pathlib.Path(sys.argv[5])
+
           root = pathlib.Path(f"Gen1_Achievements-{version}")
           files = [
               pathlib.Path("manifest.json"),
@@ -91,18 +97,39 @@ jobs:
               for path in files:
                   if path.is_file():
                       archive.write(path, (root / path).as_posix())
-          digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
-          checksum_path.write_text(f"{digest}  {archive_path.name}\n", encoding="utf-8")
-          with zipfile.ZipFile(archive_path) as archive:
-              bad = archive.testzip()
-              if bad:
-                  raise SystemExit(f"ZIP integrity check failed at {bad}")
+
+          addon_root = pathlib.Path("Fullscreen-Fit")
+          addon_files = [
+              pathlib.Path("manifest.json"),
+              pathlib.Path("main.lua"),
+              pathlib.Path("README.md"),
+          ]
+          addon_source = pathlib.Path("addons/fullscreen_fit")
+          with zipfile.ZipFile(addon_archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+              for path in addon_files:
+                  source = addon_source / path
+                  if not source.is_file():
+                      raise SystemExit(f"Missing Fullscreen Fit package file: {source}")
+                  archive.write(source, (addon_root / path).as_posix())
+
+          for package, checksum in (
+              (archive_path, checksum_path),
+              (addon_archive_path, addon_checksum_path),
+          ):
+              digest = hashlib.sha256(package.read_bytes()).hexdigest()
+              checksum.write_text(f"{digest}  {package.name}\n", encoding="utf-8")
+              with zipfile.ZipFile(package) as archive:
+                  bad = archive.testzip()
+                  if bad:
+                      raise SystemExit(f"ZIP integrity check failed at {bad}")
           PY
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "zip=$RUNNER_TEMP/$ZIP_NAME" >> "$GITHUB_OUTPUT"
           echo "checksum=$RUNNER_TEMP/$CHECKSUM_NAME" >> "$GITHUB_OUTPUT"
+          echo "addon_zip=$RUNNER_TEMP/$ADDON_ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "addon_checksum=$RUNNER_TEMP/$ADDON_CHECKSUM_NAME" >> "$GITHUB_OUTPUT"
           echo "notes=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
@@ -114,8 +141,10 @@ jobs:
           gh release create "${{ steps.package.outputs.tag }}" \
             "${{ steps.package.outputs.zip }}" \
             "${{ steps.package.outputs.checksum }}" \
+            "${{ steps.package.outputs.addon_zip }}" \
+            "${{ steps.package.outputs.addon_checksum }}" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Gen1 Achievements ${{ steps.package.outputs.version }}" \
+            --title "Gen1 Achievements ${{ steps.package.outputs.version }} + Fullscreen Fit" \
             --notes-file "${{ steps.package.outputs.notes }}" \
             --target "$RELEASE_SHA" \
             --latest
