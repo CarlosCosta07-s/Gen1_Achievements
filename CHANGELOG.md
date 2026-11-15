@@ -1,3 +1,12 @@
+## 0.5.20 — Correção de sobreposições na interface de conquistas GBA
+
+- Substituída a fonte única de 15 px por uma hierarquia Plain Pixel com tamanhos próprios para cabeçalho (15), nome do jogo (11), resumo/rodapé (8), filtro/status (9), lista/título de detalhe (10) e descrição (9).
+- Reposicionados nome do jogo, progresso, barra, filtros e lista para manter separação vertical no canvas de 240×160.
+- A lista mantém cinco entradas com linhas de 12 px e texto de 10 px, evitando que as conquistas se sobreponham.
+- A tela de detalhes agora reserva quatro linhas para a descrição, com contador e comando de retorno em áreas separadas, todos dentro da moldura.
+- Largura e quebra de linha são calculadas pela instância específica da fonte de cada área.
+- Ampliado o runtime harness para verificar tamanhos de fonte, filtragem nearest, medidas, largura máxima e limites verticais nos cinco jogos de Gen 3 e nos três idiomas.
+
 ## 0.5.19 — Addon Fullscreen Fit com proporção preservada
 
 - Adicionado o addon independente Fullscreen Fit — Aspect Ratio em `addons/fullscreen_fit`, usando exclusivamente o hook público `render.viewport` da Portable Mod API 3.
