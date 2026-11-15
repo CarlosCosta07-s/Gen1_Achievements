@@ -40,7 +40,7 @@ O próprio **Gen1 Achievements** ajusta a área de jogo por meio do hook públic
 - Usa barras laterais ou superior/inferior quando a proporção do aparelho não coincide com a do jogo.
 - Os controles virtuais continuam desenhados sobre a janela inteira e não são reduzidos com a imagem do jogo.
 
-O hook altera somente o retângulo de apresentação. No PC, o modo Fullscreen/Borderless do sistema continua sendo controlado pelas opções nativas de vídeo do Gen1Recomp; o mod aproveita a maior área que o motor disponibiliza. A pasta `addons/fullscreen_fit` permanece no repositório como alternativa independente legada, mas não é necessária quando o Gen1 Achievements está instalado.
+O hook altera somente o retângulo de apresentação. No PC, o modo Fullscreen/Borderless do sistema continua sendo controlado pelas opções nativas de vídeo do Gen1Recomp; o mod aproveita a maior área que o motor disponibiliza. Não há um addon de viewport separado no pacote atual: o ajuste é parte do Gen1 Achievements.
 
 ## Jogos e perfis
 
@@ -76,7 +76,7 @@ Cada jogo contém entre 19 e 20 conquistas de Pokédex, evolução, batalhas, in
 - `docs/` — arquitetura, armazenamento, integridade, contrato dos eventos e especificação do menu de batalha.
 - `tests/validate_catalog.py` — validação estrutural e de traduções.
 - `tests/validate_engine_contract.py` — verificação de eventos, campos e tipos contra a revisão fixada do motor.
-- `tests/runtime_harness.lua` — execução controlada do `main.lua`, incluindo o menu START e a navegação da tela de conquistas, com uma API de teste.
+- `tests/runtime_harness.lua` — execução controlada do `main.lua`, incluindo o menu START, viewport integrado e navegação da tela de conquistas, com uma API de teste.
 
 ## Validação e testes
 
