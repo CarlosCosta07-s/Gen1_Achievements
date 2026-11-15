@@ -222,8 +222,10 @@ local function fit_native_viewport(ctx, base)
     rect_x = math.max(0, math.min(math.floor(rect_x), math.floor(window_width) - 1))
     rect_y = math.max(0, math.min(math.floor(rect_y), math.floor(window_height) - 1))
 
-    local rect_width = positive_number(base.width) and base.width or window_width
-    local rect_height = positive_number(base.height) and base.height or window_height
+    local base_has_dimensions = positive_number(base.width)
+        and positive_number(base.height)
+    local rect_width = base_has_dimensions and base.width or window_width
+    local rect_height = base_has_dimensions and base.height or window_height
     rect_width = math.max(1, math.min(
         math.floor(rect_width), math.floor(window_width) - rect_x
     ))
@@ -250,7 +252,8 @@ local function fit_native_viewport(ctx, base)
         math.floor(fitted_height / dpi_y + 0.5), rect_height
     ))
 
-    if fitted_window_width == rect_width and fitted_window_height == rect_height then
+    if base_has_dimensions and fitted_window_width == rect_width
+        and fitted_window_height == rect_height then
         return base
     end
 
