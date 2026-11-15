@@ -29,6 +29,18 @@ A nova interface usa uma bandeja escura e cartões claros, com hierarquia inspir
 
 O mod não inclui sprites, fontes ou recursos extraídos de Black/White. Ele envia escolhas semânticas para o motor por meio da API pública de batalha. A navegação funciona com teclado, gamepad, controles virtuais Android/iOS e toque direto; toques são descartados quando o painel visível pertence a uma revisão/fase anterior da batalha. A mochila, a equipe, a execução dos golpes e as regras do combate continuam nativas. Rejeições específicas de alvo retornadas pelo motor recebem avisos localizados no painel, sem tentar antecipar as regras de cada golpe. Seleção forçada de equipe e mensagens também permanecem sob controle do jogo. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md).
 
+## Addon Fullscreen Fit — Aspect Ratio
+
+O repositório também fornece um addon independente chamado **Fullscreen Fit — Aspect Ratio** (`addons/fullscreen_fit`). Ele usa o hook público `render.viewport` para maximizar a área do jogo dentro da janela sem esticar sprites:
+
+- Gen 1 e Gen 2: proporção nativa 10:9.
+- Gen 3: proporção nativa 3:2.
+- Centraliza a imagem e deixa barras laterais ou superior/inferior quando a tela não tem a mesma proporção.
+- Considera DPI físico e respeita retângulos de viewport reservados por outros mods.
+- Os controles virtuais continuam posicionados em relação à janela inteira.
+
+O addon tem seu próprio `manifest.json` e `main.lua`, não depende do mod de conquistas e será distribuído como ZIP separado na mesma página de Releases. No PC, o modo de janela sem bordas/Fullscreen continua sendo controlado pela opção nativa de vídeo do Gen1Recomp; o addon ajusta a área de jogo dentro da janela disponível. Consulte [addons/fullscreen_fit/README.md](addons/fullscreen_fit/README.md).
+
 ## Releases públicas
 
 As versões estáveis são publicadas em [GitHub Releases](https://github.com/CarlosCosta07-s/Gen1_Achievements/releases). Cada release validada inclui um ZIP instalável com `manifest.json`, `main.lua`, dados e documentação, além do checksum SHA-256. A publicação só acontece depois que catálogo, contrato de eventos, sintaxe LuaJIT e runtime harness passam na branch `main`.
