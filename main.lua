@@ -2278,6 +2278,9 @@ return function(mod)
     end
 
     local function draw_native_battle_moves(assets, snapshot, dictionary, layout)
+        if snapshot.prompt == "moves" then
+            draw_native_active_actor(assets, snapshot, dictionary)
+        end
         local entries = snapshot.prompt == "mimic"
             and (snapshot.mimicMoves or {}) or (snapshot.moves or {})
         for index, button in ipairs(layout.buttons) do
@@ -2342,7 +2345,34 @@ return function(mod)
         end
     end
 
+    local function battle_hp_values(mon)
+        if type(mon) ~= "table" then return nil end
+        local hp, maximum = tonumber(mon.hp), tonumber(mon.maxHp)
+        if hp == nil or maximum == nil or hp ~= hp or maximum ~= maximum
+            or hp == math.huge or hp == -math.huge
+            or maximum == math.huge or maximum == -math.huge or maximum < 1 then
+            return nil
+        end
+        maximum = math.floor(maximum)
+        if maximum < 1 then return nil end
+        return math.max(0, math.min(maximum, math.floor(hp))), maximum
+    end
+
+    local function draw_native_active_actor(assets, snapshot, dictionary)
+        if snapshot.double ~= true or type(snapshot.player) ~= "table" then return end
+        local name = snapshot.player.name or snapshot.player.species
+        if type(name) ~= "string" or name == "" then return end
+        local label = (dictionary.battle_active or "ATIVO") .. ": " .. name
+        local hp, maximum = battle_hp_values(snapshot.player)
+        if hp ~= nil and maximum ~= nil then
+            label = label .. (" %d/%d"):format(hp, maximum)
+        end
+        native_battle_text(assets, clip_text(label, 28, mod.ui.Font),
+            8, 112, assets.generation == 3 and { small = true } or nil)
+    end
+
     local function draw_native_battle_targets(assets, snapshot, dictionary, layout)
+        draw_native_active_actor(assets, snapshot, dictionary)
         local targets = snapshot.targets or {}
         local byId = {}
         for _, battler in ipairs(snapshot.battlers or {}) do
