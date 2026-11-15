@@ -651,7 +651,7 @@ return function(mod)
         local Font = mod.ui.Font
         local gen3 = is_gen3_runtime(game, game_id)
         local theme = GAME3_THEMES[game_id] or GAME3_THEMES.firered
-        local previousColor, previousFont
+        local previousColor
 
         for _, achievement in ipairs(catalog[game_id] or {}) do
             if is_unlocked(profile, achievement.id) then
@@ -663,11 +663,6 @@ return function(mod)
             local ok, r, g, b, a = pcall(graphics.getColor)
             if ok then previousColor = { r, g, b, a } end
         end
-        if gen3 and graphics and type(graphics.getFont) == "function" then
-            local ok, font = pcall(graphics.getFont)
-            if ok then previousFont = font end
-        end
-
         local function draw_legacy()
             local dictionary = TEXT[selected_language()] or TEXT[DEFAULT_LANGUAGE]
             Font.drawBox(0, 0, 20, 18)
@@ -790,14 +785,16 @@ return function(mod)
                 graphics.rectangle("fill", x, y, width, height)
             end
             local function label(value, x, y, color)
-                if not (graphics and graphics.setColor) then return end
+                if not (graphics and graphics.setColor)
+                    or not (Font and type(Font.draw) == "function") then
+                    return
+                end
                 color = color or { 0.12, 0.14, 0.17, 1 }
                 graphics.setColor(color[1], color[2], color[3], color[4] or 1)
-                if type(graphics.print) == "function" then
-                    graphics.print(tostring(value or ""), x, y)
-                elseif type(graphics.printf) == "function" then
-                    graphics.printf(tostring(value or ""), x, y, 220, "left")
-                end
+                -- Use the engine's generation-aware pixel font. The default
+                -- LÖVE font rasterized at 8px is antialiased and becomes soft
+                -- when the 240x160 GBA canvas is scaled to the device window.
+                Font.draw(tostring(value or ""), x, y)
             end
 
             local paper = { 0.97, 0.97, 0.94, 1 }
@@ -914,9 +911,6 @@ return function(mod)
 
         local ok, drawError = pcall(function()
             if gen3 then
-                if self.gen3_font and graphics and type(graphics.setFont) == "function" then
-                    graphics.setFont(self.gen3_font)
-                end
                 draw_gen3()
             else
                 draw_legacy()
@@ -929,9 +923,6 @@ return function(mod)
             else
                 graphics.setColor(1, 1, 1, 1)
             end
-        end
-        if gen3 and previousFont and graphics and type(graphics.setFont) == "function" then
-            pcall(graphics.setFont, previousFont)
         end
         if not ok then
             mod.log:warn("Achievement screen draw failed: %s", tostring(drawError))
@@ -952,22 +943,9 @@ return function(mod)
         new = function(game)
             local game_id = game_id_from(game) or "red"
             local gen3 = is_gen3_runtime(game, game_id)
-            local gen3_font
-            if gen3 and love and love.graphics
-                and type(love.graphics.newFont) == "function" then
-                local ok, font = pcall(love.graphics.newFont, 8)
-                if ok then
-                    gen3_font = font
-                    if font and type(font.setFilter) == "function" then
-                        pcall(font.setFilter, font, "nearest", "nearest")
-                    end
-                end
-            end
-
             local self = {
                 isOpaque = true,
                 gbaCanvas = gen3,
-                gen3_font = gen3_font,
                 filter_index = 1,
                 cursor = 1,
                 scroll = 0,
