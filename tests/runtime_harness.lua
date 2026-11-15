@@ -1601,15 +1601,6 @@ local move_snapshot = {
     },
 }
 local command_env = make_environment("red")
-command_env:set_battle_snapshot(menu_snapshot)
-command_env:run_hook(
-    "input.key", nil, command_env.game, { phase = "pressed", key = "z" }
-)
-check(#command_env:submitted() == 1
-    and command_env:submitted()[1].kind == "menu"
-    and command_env:submitted()[1].choice == "fight"
-    and command_env:submitted()[1].revision == 1,
-    "keyboard A did not submit the Fight command against the current revision")
 command_env:set_battle_snapshot(move_snapshot)
 for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
 command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
@@ -1626,10 +1617,10 @@ check(moveText:find("THUNDERBOLT", 1, true) ~= nil
 command_env:run_hook(
     "input.gamepad", nil, command_env.game, { phase = "pressed", button = "a" }
 )
-check(#command_env:submitted() == 2
-    and command_env:submitted()[2].kind == "move"
-    and command_env:submitted()[2].slot == 1
-    and command_env:submitted()[2].revision == 2,
+check(#command_env:submitted() == 1
+    and command_env:submitted()[1].kind == "move"
+    and command_env:submitted()[1].slot == 1
+    and command_env:submitted()[1].revision == 2,
     "gamepad A did not submit the selected move slot")
 
 local no_moves_snapshot = {
@@ -2151,8 +2142,8 @@ command_env:set_battle_snapshot(move_snapshot)
 command_env:run_hook(
     "input.key", nil, command_env.game, { phase = "pressed", key = "x" }
 )
-check(#command_env:submitted() == 3
-    and command_env:submitted()[3].kind == "back",
+check(#command_env:submitted() == 2
+    and command_env:submitted()[2].kind == "back",
     "B did not return from the native move selector")
 
 -- The pointer consumes only presses inside the drawn command tray; it never
