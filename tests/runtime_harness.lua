@@ -143,6 +143,7 @@ package.preload["src.core.game3.battle.types"] = function()
     return { name = function(id) return names[id] or "TYPE" end }
 end
 
+local fake_graphics_color = { 1, 1, 1, 1 }
 local ui_draw_target
 local ui_shape_target
 local fake_graphics_font = { size = 12 }
