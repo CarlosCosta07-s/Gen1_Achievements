@@ -23,6 +23,37 @@ local GAME_IDS = {
     emerald = true,
 }
 
+local GEN3_GAME_IDS = {
+    firered = true,
+    leafgreen = true,
+    ruby = true,
+    sapphire = true,
+    emerald = true,
+}
+
+local GAME3_THEMES = {
+    firered = {
+        accent = { 0.78, 0.18, 0.20, 1 },
+        selected = { 1.00, 0.88, 0.86, 1 },
+    },
+    leafgreen = {
+        accent = { 0.20, 0.55, 0.28, 1 },
+        selected = { 0.88, 0.96, 0.86, 1 },
+    },
+    ruby = {
+        accent = { 0.72, 0.16, 0.24, 1 },
+        selected = { 1.00, 0.88, 0.89, 1 },
+    },
+    sapphire = {
+        accent = { 0.16, 0.36, 0.72, 1 },
+        selected = { 0.87, 0.92, 1.00, 1 },
+    },
+    emerald = {
+        accent = { 0.12, 0.48, 0.34, 1 },
+        selected = { 0.86, 0.96, 0.90, 1 },
+    },
+}
+
 local GAME_TITLES = {
     red = "POKEMON RED",
     blue = "POKEMON BLUE",
@@ -204,14 +235,37 @@ return function(mod)
 
     load_text()
 
+    local function known_game_id(version)
+        if type(version) ~= "string" then return nil end
+        version = version:lower()
+        return GAME_IDS[version] and version or nil
+    end
+
     local function game_id_from(game)
-        local save = game and game.save
-        local version = save and save.version
-        if type(version) == "string" then
-            version = version:lower()
-            if GAME_IDS[version] then return version end
+        local function from_owner(owner)
+            if type(owner) ~= "table" then return nil end
+            local direct = known_game_id(owner.version)
+            if direct then return direct end
+
+            local session = type(owner.session) == "table" and owner.session or nil
+            local session_version = session and known_game_id(session.version)
+            if session_version then return session_version end
+
+            local save = type(owner.save) == "table" and owner.save or nil
+            return save and known_game_id(save.version) or nil
         end
-        return nil
+
+        -- Game3 has no save object during field play: its selected title lives
+        -- on game.session.version. Keep save.version for the older game owners.
+        return from_owner(game) or from_owner(mod.game)
+    end
+
+    local function is_gen3_runtime(game, game_id)
+        if GEN3_GAME_IDS[game_id] then return true end
+        if type(game) ~= "table" then return false end
+        if tonumber(game.generation) == 3 then return true end
+        return type(game.data) == "table"
+            and tonumber(game.data.generation) == 3
     end
 
     local active_game
@@ -588,22 +642,16 @@ return function(mod)
 
     local function draw_screen(game, self)
         local graphics = love and love.graphics
-        local previousColor
-        if graphics and type(graphics.getColor) == "function" then
-            local ok, r, g, b, a = pcall(graphics.getColor)
-            if ok then previousColor = { r, g, b, a } end
-        end
-
-        local function draw_contents()
-        local Font = mod.ui.Font
-        local language = selected_language()
-        local dictionary = TEXT[language] or TEXT[DEFAULT_LANGUAGE]
         local game_id = game_id_from(game) or "red"
         local game_title = GAME_TITLES[game_id] or game_id:upper()
         local profile = get_profile(game_id)
         local entries = filtered_entries(game_id, profile, self.filter_index)
         local unlocked_count = 0
         local total_count = #(catalog[game_id] or {})
+        local Font = mod.ui.Font
+        local gen3 = is_gen3_runtime(game, game_id)
+        local theme = GAME3_THEMES[game_id] or GAME3_THEMES.firered
+        local previousColor, previousFont
 
         for _, achievement in ipairs(catalog[game_id] or {}) do
             if is_unlocked(profile, achievement.id) then
@@ -611,124 +659,279 @@ return function(mod)
             end
         end
 
-        Font.drawBox(0, 0, 20, 18)
-        if graphics and type(graphics.setColor) == "function" then
-            graphics.setColor(0, 0, 0, 1)
+        if graphics and type(graphics.getColor) == "function" then
+            local ok, r, g, b, a = pcall(graphics.getColor)
+            if ok then previousColor = { r, g, b, a } end
         end
-        Font.draw(dictionary.title, 16, 8)
-        Font.draw(clip_text(game_title, 18, Font), 16, 20)
-        local percentage = total_count > 0
-            and math.floor((unlocked_count / total_count) * 100) or 0
-        Font.draw(
-            ("%s %d/%d (%d%%)"):format(
-                dictionary.progress, unlocked_count, total_count, percentage
-            ),
-            16, 32
-        )
+        if gen3 and graphics and type(graphics.getFont) == "function" then
+            local ok, font = pcall(graphics.getFont)
+            if ok then previousFont = font end
+        end
 
-        if self.detail_index then
-            local achievement = entries[self.detail_index]
-            if not achievement then
-                self.detail_index = nil
+        local function draw_legacy()
+            local dictionary = TEXT[selected_language()] or TEXT[DEFAULT_LANGUAGE]
+            Font.drawBox(0, 0, 20, 18)
+            if graphics and type(graphics.setColor) == "function" then
+                graphics.setColor(0, 0, 0, 1)
+            end
+            Font.draw(dictionary.title, 16, 8)
+            Font.draw(clip_text(game_title, 18, Font), 16, 20)
+            local percentage = total_count > 0
+                and math.floor((unlocked_count / total_count) * 100) or 0
+            Font.draw(
+                ("%s %d/%d (%d%%)"):format(
+                    dictionary.progress, unlocked_count, total_count, percentage
+                ),
+                16, 32
+            )
+
+            if self.detail_index then
+                local achievement = entries[self.detail_index]
+                if not achievement then
+                    self.detail_index = nil
+                    return
+                end
+
+                local unlocked = is_unlocked(profile, achievement.id)
+                local status = unlocked and dictionary.unlocked or dictionary.locked
+                Font.draw(status, 16, 46)
+                Font.draw(
+                    clip_text(achievement_label(achievement, profile), 18, Font),
+                    16, 60
+                )
+
+                local description = achievement_description(achievement, profile)
+                local lines = wrap_text(description, 18, Font)
+                local y = 76
+                for index = 1, math.min(#lines, 4) do
+                    Font.draw(lines[index], 16, y)
+                    y = y + 12
+                end
+
+                if achievement.mode == "counter" and not unlocked then
+                    local current = profile.progress[achievement.id] or 0
+                    Font.draw(("%d/%d"):format(current, achievement.target), 16, 126)
+                end
+                Font.draw(dictionary.back, 16, 136)
                 return
             end
 
-            local unlocked = is_unlocked(profile, achievement.id)
-            local status = unlocked and dictionary.unlocked or dictionary.locked
-            Font.draw(status, 16, 46)
-            Font.draw(
-                clip_text(achievement_label(achievement, profile), 18, Font),
-                16, 60
-            )
+            local filters = {
+                dictionary.all,
+                dictionary.unlocked_filter,
+                dictionary.locked_filter,
+            }
+            local filter_label = "< " .. filters[self.filter_index] .. " >"
+            Font.draw(clip_text(filter_label, 18, Font), 16, 44)
 
-            local description = achievement_description(achievement, profile)
-            local lines = wrap_text(description, 18, Font)
-            local y = 76
-            for index = 1, math.min(#lines, 4) do
-                Font.draw(lines[index], 16, y)
-                y = y + 12
+            if total_count == 0 then
+                Font.draw(dictionary.empty_title, 16, 70)
+                local lines = wrap_text(dictionary.empty_description, 18, Font)
+                for index = 1, math.min(#lines, 3) do
+                    Font.draw(lines[index], 16, 84 + (index - 1) * 12)
+                end
+                Font.draw(clip_text(dictionary.filter, 18, Font), 16, 124)
+                Font.draw(dictionary.back, 16, 136)
+                return
             end
 
-            if achievement.mode == "counter" and not unlocked then
-                local current = profile.progress[achievement.id] or 0
-                Font.draw(("%d/%d"):format(current, achievement.target), 16, 126)
-            end
-            Font.draw(dictionary.back, 16, 136)
-            return
-        end
+            if #entries == 0 then
+                Font.draw(dictionary.empty_title, 16, 76)
+            else
+                local visible_rows = 5
+                local max_scroll = math.max(0, #entries - visible_rows)
+                self.scroll = math.max(0, math.min(self.scroll, max_scroll))
+                if self.cursor > #entries then self.cursor = #entries end
+                if self.cursor < 1 then self.cursor = 1 end
 
-        local filters = {
-            dictionary.all,
-            dictionary.unlocked_filter,
-            dictionary.locked_filter,
-        }
-        local filter_label = "< " .. filters[self.filter_index] .. " >"
-        Font.draw(clip_text(filter_label, 18, Font), 16, 44)
+                if self.cursor <= self.scroll then
+                    self.scroll = self.cursor - 1
+                elseif self.cursor > self.scroll + visible_rows then
+                    self.scroll = self.cursor - visible_rows
+                end
 
-        if total_count == 0 then
-            Font.draw(dictionary.empty_title, 16, 70)
-            local lines = wrap_text(dictionary.empty_description, 18, Font)
-            for index = 1, math.min(#lines, 3) do
-                Font.draw(lines[index], 16, 84 + (index - 1) * 12)
-            end
-            Font.draw(clip_text(dictionary.filter, 18, Font), 16, 124)
-            Font.draw(dictionary.back, 16, 136)
-            return
-        end
+                for row = 1, visible_rows do
+                    local entry_index = self.scroll + row
+                    local achievement = entries[entry_index]
+                    if achievement then
+                        local unlocked = is_unlocked(profile, achievement.id)
+                        local prefix = unlocked and "[X] " or "[ ] "
+                        local label = achievement_label(achievement, profile)
+                        local suffix = ""
 
-        if #entries == 0 then
-            Font.draw(dictionary.empty_title, 16, 76)
-        else
-            local visible_rows = 5
-            local max_scroll = math.max(0, #entries - visible_rows)
-            self.scroll = math.max(0, math.min(self.scroll, max_scroll))
-            if self.cursor > #entries then self.cursor = #entries end
-            if self.cursor < 1 then self.cursor = 1 end
+                        if achievement.mode == "counter" and not unlocked then
+                            local current = profile.progress[achievement.id] or 0
+                            suffix = (" %d/%d"):format(current, achievement.target)
+                        end
 
-            if self.cursor <= self.scroll then
-                self.scroll = self.cursor - 1
-            elseif self.cursor > self.scroll + visible_rows then
-                self.scroll = self.cursor - visible_rows
-            end
-
-            for row = 1, visible_rows do
-                local entry_index = self.scroll + row
-                local achievement = entries[entry_index]
-                if achievement then
-                    local unlocked = is_unlocked(profile, achievement.id)
-                    local prefix = unlocked and "[X] " or "[ ] "
-                    local label = achievement_label(achievement, profile)
-                    local suffix = ""
-
-                    if achievement.mode == "counter" and not unlocked then
-                        local current = profile.progress[achievement.id] or 0
-                        suffix = (" %d/%d"):format(current, achievement.target)
+                        local line = clip_text(
+                            prefix .. label .. suffix, 17, Font
+                        )
+                        if entry_index == self.cursor then
+                            Font.draw(">", 4, 58 + (row - 1) * 12)
+                        end
+                        Font.draw(line, 16, 58 + (row - 1) * 12)
                     end
-
-                    local line = clip_text(
-                        prefix .. label .. suffix, 17, Font
-                    )
-                    if entry_index == self.cursor then
-                        Font.draw(">", 4, 58 + (row - 1) * 12)
-                    end
-                    Font.draw(line, 16, 58 + (row - 1) * 12)
                 end
             end
+
+            Font.draw(clip_text(dictionary.filter, 18, Font), 16, 124)
+            Font.draw(dictionary.details, 16, 136)
         end
 
-        Font.draw(clip_text(dictionary.filter, 18, Font), 16, 124)
-        Font.draw(dictionary.details, 16, 136)
+        -- Ruby/Sapphire/Emerald and FireRed/LeafGreen run on the GBA's
+        -- 240x160 display. Do not route their text through the 160x144
+        -- Game Boy tile-font renderer: draw with LÖVE's pixel font instead.
+        local function draw_gen3()
+            local dictionary = TEXT[selected_language()] or TEXT[DEFAULT_LANGUAGE]
+            local function rect(color, x, y, width, height)
+                if not (graphics and graphics.setColor and graphics.rectangle) then return end
+                graphics.setColor(color[1], color[2], color[3], color[4] or 1)
+                graphics.rectangle("fill", x, y, width, height)
+            end
+            local function label(value, x, y, color)
+                if not (graphics and graphics.setColor) then return end
+                color = color or { 0.12, 0.14, 0.17, 1 }
+                graphics.setColor(color[1], color[2], color[3], color[4] or 1)
+                if type(graphics.print) == "function" then
+                    graphics.print(tostring(value or ""), x, y)
+                elseif type(graphics.printf) == "function" then
+                    graphics.printf(tostring(value or ""), x, y, 220, "left")
+                end
+            end
+
+            local paper = { 0.97, 0.97, 0.94, 1 }
+            local ink = { 0.10, 0.12, 0.15, 1 }
+            local muted = { 0.34, 0.37, 0.40, 1 }
+            local lineColor = { 0.78, 0.80, 0.79, 1 }
+            local success = { 0.14, 0.48, 0.29, 1 }
+            local lockedColor = { 0.61, 0.36, 0.12, 1 }
+
+            rect({ 0.035, 0.055, 0.085, 1 }, 0, 0, 240, 160)
+            rect(theme.accent, 7, 5, 226, 150)
+            rect(paper, 9, 7, 222, 146)
+            rect(theme.accent, 9, 7, 222, 23)
+            label(dictionary.title, 16, 10, { 1, 1, 1, 1 })
+            label(game_title, 16, 34, ink)
+
+            local percentage = total_count > 0
+                and math.floor((unlocked_count / total_count) * 100) or 0
+            label(("%s %d/%d (%d%%)"):format(
+                dictionary.progress, unlocked_count, total_count, percentage
+            ), 16, 47, muted)
+            rect(lineColor, 166, 49, 48, 6)
+            rect(theme.accent, 167, 50, math.floor(46 * percentage / 100), 4)
+            rect(lineColor, 14, 58, 212, 1)
+
+            if self.detail_index then
+                local achievement = entries[self.detail_index]
+                if not achievement then
+                    self.detail_index = nil
+                    return
+                end
+
+                local unlocked = is_unlocked(profile, achievement.id)
+                rect(unlocked and { 0.86, 0.95, 0.88, 1 }
+                    or { 0.98, 0.92, 0.82, 1 }, 14, 63, 212, 15)
+                label(unlocked and dictionary.unlocked or dictionary.locked,
+                    19, 66, unlocked and success or lockedColor)
+                label(clip_text(achievement_label(achievement, profile), 38, Font),
+                    16, 84, ink)
+
+                local description = achievement_description(achievement, profile)
+                local lines = wrap_text(description, 38, Font)
+                local y = 100
+                for index = 1, math.min(#lines, 3) do
+                    label(lines[index], 16, y, ink)
+                    y = y + 12
+                end
+
+                if achievement.mode == "counter" and not unlocked then
+                    local current = profile.progress[achievement.id] or 0
+                    label(("%d/%d"):format(current, achievement.target), 16, 137, theme.accent)
+                end
+                label(dictionary.back, 16, 146, muted)
+                return
+            end
+
+            local filters = {
+                dictionary.all,
+                dictionary.unlocked_filter,
+                dictionary.locked_filter,
+            }
+            local filter_label = "< " .. filters[self.filter_index] .. " >"
+            label(clip_text(filter_label, 38, Font), 16, 63, theme.accent)
+            rect(lineColor, 14, 76, 212, 1)
+
+            if total_count == 0 then
+                label(dictionary.empty_title, 16, 87, ink)
+                local lines = wrap_text(dictionary.empty_description, 38, Font)
+                for index = 1, math.min(#lines, 3) do
+                    label(lines[index], 16, 104 + (index - 1) * 12, muted)
+                end
+            elseif #entries == 0 then
+                label(dictionary.empty_title, 16, 91, muted)
+            else
+                local visible_rows = 5
+                local max_scroll = math.max(0, #entries - visible_rows)
+                self.scroll = math.max(0, math.min(self.scroll, max_scroll))
+                if self.cursor > #entries then self.cursor = #entries end
+                if self.cursor < 1 then self.cursor = 1 end
+
+                if self.cursor <= self.scroll then
+                    self.scroll = self.cursor - 1
+                elseif self.cursor > self.scroll + visible_rows then
+                    self.scroll = self.cursor - visible_rows
+                end
+
+                for row = 1, visible_rows do
+                    local entry_index = self.scroll + row
+                    local achievement = entries[entry_index]
+                    if achievement then
+                        local unlocked = is_unlocked(profile, achievement.id)
+                        local prefix = unlocked and "[X] " or "[ ] "
+                        local suffix = ""
+                        if achievement.mode == "counter" and not unlocked then
+                            local current = profile.progress[achievement.id] or 0
+                            suffix = (" %d/%d"):format(current, achievement.target)
+                        end
+                        local rowY = 79 + (row - 1) * 12
+                        if entry_index == self.cursor then
+                            rect(theme.selected, 14, rowY - 1, 212, 11)
+                            label(">", 18, rowY, theme.accent)
+                        end
+                        local line = clip_text(
+                            prefix .. achievement_label(achievement, profile) .. suffix,
+                            38, Font
+                        )
+                        label(line, 31, rowY, unlocked and success or ink)
+                    end
+                end
+            end
+
+            label(dictionary.filter .. "  |  " .. dictionary.details, 16, 145, muted)
         end
 
-        -- Isolate rendering failures and restore the caller's color even when
-        -- one of the localized labels cannot be drawn.
-        local ok, drawError = pcall(draw_contents)
+        local ok, drawError = pcall(function()
+            if gen3 then
+                if self.gen3_font and graphics and type(graphics.setFont) == "function" then
+                    graphics.setFont(self.gen3_font)
+                end
+                draw_gen3()
+            else
+                draw_legacy()
+            end
+        end)
+
         if graphics and type(graphics.setColor) == "function" then
             if previousColor then
                 graphics.setColor(unpack(previousColor))
             else
                 graphics.setColor(1, 1, 1, 1)
             end
+        end
+        if gen3 and previousFont and graphics and type(graphics.setFont) == "function" then
+            pcall(graphics.setFont, previousFont)
         end
         if not ok then
             mod.log:warn("Achievement screen draw failed: %s", tostring(drawError))
@@ -747,8 +950,24 @@ return function(mod)
     -- the START menu on all supported generations.
     mod.content.screens:register(SCREEN_ID, {
         new = function(game)
+            local game_id = game_id_from(game) or "red"
+            local gen3 = is_gen3_runtime(game, game_id)
+            local gen3_font
+            if gen3 and love and love.graphics
+                and type(love.graphics.newFont) == "function" then
+                local ok, font = pcall(love.graphics.newFont, 8)
+                if ok then
+                    gen3_font = font
+                    if font and type(font.setFilter) == "function" then
+                        pcall(font.setFilter, font, "nearest", "nearest")
+                    end
+                end
+            end
+
             local self = {
                 isOpaque = true,
+                gbaCanvas = gen3,
+                gen3_font = gen3_font,
                 filter_index = 1,
                 cursor = 1,
                 scroll = 0,
@@ -757,9 +976,10 @@ return function(mod)
 
             function self:update(dt)
                 local input = game.input
-                local profile = get_profile(game_id_from(game) or "red")
+                local current_game_id = game_id_from(game) or game_id
+                local profile = get_profile(current_game_id)
                 local entries = filtered_entries(
-                    game_id_from(game) or "red", profile, self.filter_index
+                    current_game_id, profile, self.filter_index
                 )
 
                 if input:wasPressed("b") or input:wasPressed("start") then
