@@ -1,3 +1,12 @@
+## 0.5.21 — Tipografia legível e ajuste de tela integrado
+
+- Integrado ao Gen1 Achievements o ajuste de viewport antes fornecido apenas pelo addon separado; a instalação do mod principal agora basta para usar a maior área disponível.
+- Preservadas as proporções nativas: 10:9 em Gen 1/2 e 3:2 em Gen 3, com centralização, respeito a DPI e sem esticar sprites ou cenários.
+- Mantidos os controles virtuais em coordenadas da janela inteira, fora da área redimensionada.
+- Substituída a tipografia decorativa do corpo da interface GBA por fontes sem serifa maiores, mantendo Plain Pixel apenas no título e no nome do jogo.
+- Movido o progresso de conquistas incrementais para a faixa de status, limitado o texto de descrição a três linhas e reposicionado o rodapé para evitar cortes na borda inferior.
+- Ampliado o runtime harness para validar viewport de desktop, Android retrato/paisagem, DPI, viewports compostos, tamanhos de fonte, quebra de linha, largura e limites verticais.
+
 ## 0.5.20 — Correção de sobreposições na interface de conquistas GBA
 
 - Substituída a fonte única de 15 px por uma hierarquia Plain Pixel com tamanhos próprios para cabeçalho (15), nome do jogo (11), resumo/rodapé (8), filtro/status (9), lista/título de detalhe (10) e descrição (9).
