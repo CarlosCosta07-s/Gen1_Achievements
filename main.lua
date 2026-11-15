@@ -2291,8 +2291,11 @@ return function(mod)
             end
             local move = entries[index] or {}
             local label = move.name or move.id or "-"
+            -- Keep complete native move names (including THUNDERBOLT) in
+            -- the original game's text window; the font stays at its native
+            -- size and the window geometry, not a card width, bounds the row.
             native_battle_text(assets, clip_text(label,
-                assets.generation == 3 and 15 or 10, mod.ui.Font),
+                assets.generation == 3 and 15 or 14, mod.ui.Font),
                 button.textX, button.textY,
                 assets.generation == 3 and { small = true } or nil)
         end
