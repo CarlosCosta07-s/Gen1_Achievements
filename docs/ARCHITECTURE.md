@@ -8,7 +8,7 @@ A implementação usa as superfícies oficiais da Portable Mod API 3:
 - `mod.ui.push` para abrir a tela a partir da opção do menu.
 - Tela com `update(dt)` e `draw()`, usando `game.input:wasPressed` para D-pad, A, B e START.
 
-O mesmo contrato é usado nas três gerações. A opção do menu ajusta sua largura automaticamente com base no maior rótulo, permitindo nomes localizados mais longos. O hook `ui.start_menu.items` é o ponto de extensão do menu do jogo.
+O mesmo contrato é usado nas três gerações. A opção do menu ajusta sua largura automaticamente com base no maior rótulo, permitindo nomes localizados mais longos. No canvas GBA (240×160), a tela usa Plain Pixel em 15 px, hinting mono, DPI 1 e filtro nearest; truncamento e quebra de linhas medem a fonte TTF ativa por pixel, em vez de reutilizar a largura da fonte de tiles de Game Boy. A lista mantém cinco linhas e separa o rodapé e a tela de detalhes. O hook `ui.start_menu.items` é o ponto de extensão do menu do jogo.
 
 ## Comportamento de console
 
@@ -67,6 +67,12 @@ Para `operator=any`, use `*` em `match_field`. Os campos também aceitam caminho
 
 Eventos usados incluem `pokemon.caught`, `pokemon.level_up`, `pokemon.evolved`, `pokemon.move_learned`, `battle.ended`, `map.entered`, `flag.changed`, `egg.hatched`, `happiness.changed`, `pokerus.infected` e eventos exclusivos de Johto. A disponibilidade é verificada por jogo e geração.
 
+## Identidade por jogo
+
+O catálogo contém 216 conquistas, entre 19 e 20 por título. Além dos marcos compartilhados de Pokédex, evolução, batalhas e história, há um objetivo de assinatura com condição diferente em cada jogo: Electabuzz em Red, Magmar em Blue, 15 níveis do Pikachu parceiro em Yellow, Mankey em Gold, Delibird em Silver, entrada na Battle Tower em Crystal, Wooper em FireRed, Slowpoke em LeafGreen, Zangoose em Ruby, Seviper em Sapphire e entrada no saguão da Battle Tower da Battle Frontier em Emerald.
+
+Essas condições usam eventos que já fazem parte da matriz da Portable Mod API 3: captura, subida de nível e entrada em mapa. O validador compara o ID e a condição de cada uma das onze assinaturas com uma tabela explícita e também exige que as condições de assinatura sejam distintas. Isso impede que uma atualização altere os títulos sem preservar a diferença real de jogabilidade.
+
 ## Contrato de eventos do motor
 
 `tests/engine_event_contract.json` registra os eventos, suas gerações e os tipos dos campos que o catálogo consome. A matriz foi conferida no Gen1Recomp `dev` em commit `825f1670aeecb4a72345fb473d287fd8ea502ad2`; o SHA está fixado para que o contrato não mude silenciosamente. `tests/validate_engine_contract.py` confere cada linha do TSV contra essa matriz, incluindo o campo booleano `value` que protege os contadores de flags e os IDs numéricos de Gen 2.
@@ -104,7 +110,7 @@ luajit -b main.lua /tmp/gen1-achievements.luac
 luajit tests/runtime_harness.lua
 ```
 
-O harness exercita as 205 definições atuais com payloads sintéticos. As validações estáticas também usam uma matriz versionada do contrato do motor; nenhuma delas substitui testes dentro das versões executáveis dos onze jogos. A confirmação final exige testar as versões reais.
+O harness exercita as 216 definições atuais com payloads sintéticos e verifica os onze objetivos de assinatura. As validações estáticas também usam uma matriz versionada do contrato do motor; nenhuma delas substitui testes dentro das versões executáveis dos onze jogos. A confirmação final exige testar as versões reais.
 
 ## Organização das opções do jogo e do mod
 
