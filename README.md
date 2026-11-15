@@ -8,7 +8,7 @@ Mod de conquistas para Pokémon Red, Blue, Yellow, Gold, Silver, Crystal, FireRe
 
 - Nova opção compacta **CONQ.** no menu START, posicionada antes de OPTIONS; o título completo aparece dentro da tela.
 - Menu de batalha redesenhado pelo mod com referência estrutural em Pokémon Black/White e variação visual por título, incluindo os seletores especiais Mimic e Safari Zone de Gen 1.
-- Tela de conquistas com navegação pelo D-pad e botões A/B/START; em Gen 3, usa a área GBA completa (240×160) e uma hierarquia de fontes Plain Pixel (15/11/10/9/8 px), com hinting mono, DPI 1 e filtro nearest. Cabeçalho, resumo, lista e detalhes têm tamanhos e espaçamentos próprios; quebra de linhas e truncamento usam as métricas reais de cada fonte para evitar sobreposições e cortes em PC e Android.
+- Tela de conquistas com navegação pelo D-pad e botões A/B/START; em Gen 3, usa a área GBA completa (240×160). O título e o nome do jogo mantêm a fonte Plain Pixel, enquanto resumo, filtros, lista, descrições e controles usam uma fonte sem serifa maior e mais simples. Descrições ocupam até três linhas, o progresso de conquistas incrementais fica junto ao status e o rodapé permanece dentro da moldura.
 - Filtros All / Unlocked / Locked, com instrução de navegação no rodapé.
 - Detalhes e descrições das conquistas.
 - Contadores de progresso para conquistas incrementais.
@@ -29,23 +29,18 @@ A nova interface usa uma bandeja escura e cartões claros, com hierarquia inspir
 
 O mod não inclui sprites, fontes ou recursos extraídos de Black/White. Ele envia escolhas semânticas para o motor por meio da API pública de batalha. A navegação funciona com teclado, gamepad, controles virtuais Android/iOS e toque direto; toques são descartados quando o painel visível pertence a uma revisão/fase anterior da batalha. A mochila, a equipe, a execução dos golpes e as regras do combate continuam nativas. Rejeições específicas de alvo retornadas pelo motor recebem avisos localizados no painel, sem tentar antecipar as regras de cada golpe. Seleção forçada de equipe e mensagens também permanecem sob controle do jogo. Consulte [docs/BATTLE_UI.md](docs/BATTLE_UI.md).
 
-## Addon Fullscreen Fit — Aspect Ratio
+## Ajuste de tela integrado
 
-O repositório também fornece um addon independente chamado **Fullscreen Fit — Aspect Ratio** (`addons/fullscreen_fit`). Ele usa o hook público `render.viewport` para maximizar a área do jogo dentro da janela sem esticar sprites:
+O próprio **Gen1 Achievements** ajusta a área de jogo por meio do hook público `render.viewport`; não é necessário instalar ou ativar um segundo mod:
 
 - Gen 1 e Gen 2: proporção nativa 10:9.
 - Gen 3: proporção nativa 3:2.
-- Centraliza a imagem e deixa barras laterais ou superior/inferior quando a tela não tem a mesma proporção.
-- Considera DPI físico e respeita retângulos de viewport reservados por outros mods.
-- Os controles virtuais continuam posicionados em relação à janela inteira.
+- Calcula o maior retângulo centralizado disponível na janela, respeitando o DPI e as áreas reservadas por outros mods.
+- Mantém a mesma escala nos dois eixos; sprites e cenários não são esticados.
+- Usa barras laterais ou superior/inferior quando a proporção do aparelho não coincide com a do jogo.
+- Os controles virtuais continuam desenhados sobre a janela inteira e não são reduzidos com a imagem do jogo.
 
-O addon tem seu próprio `manifest.json` e `main.lua`, não depende do mod de conquistas e será distribuído como ZIP separado na mesma página de Releases. No PC, o modo de janela sem bordas/Fullscreen continua sendo controlado pela opção nativa de vídeo do Gen1Recomp; o addon ajusta a área de jogo dentro da janela disponível. Consulte [addons/fullscreen_fit/README.md](addons/fullscreen_fit/README.md).
-
-## Releases públicas
-
-As versões estáveis são publicadas em [GitHub Releases](https://github.com/CarlosCosta07-s/Gen1_Achievements/releases). Cada release validada inclui um ZIP instalável com `manifest.json`, `main.lua`, dados e documentação, além do checksum SHA-256. A publicação só acontece depois que catálogo, contrato de eventos, sintaxe LuaJIT e runtime harness passam na branch `main`.
-
-**Licença:** este repositório ainda não contém um arquivo `LICENSE`. O código e os pacotes estão publicamente acessíveis para download, mas o projeto ainda não declarou termos de licença para redistribuição ou modificação. Nenhuma licença foi presumida nesta publicação.
+O hook altera somente o retângulo de apresentação. No PC, o modo Fullscreen/Borderless do sistema continua sendo controlado pelas opções nativas de vídeo do Gen1Recomp; o mod aproveita a maior área que o motor disponibiliza. A pasta `addons/fullscreen_fit` permanece no repositório como alternativa independente legada, mas não é necessária quando o Gen1 Achievements está instalado.
 
 ## Jogos e perfis
 
@@ -73,7 +68,7 @@ Cada jogo contém entre 19 e 20 conquistas de Pokédex, evolução, batalhas, in
 ## Arquivos principais
 
 - `manifest.json` — Portable Mod API 3 e os onze jogos.
-- `main.lua` — menu START, organização de submenus, menu de batalha, tela, persistência, eventos e notificações.
+- `main.lua` — menu START, organização de submenus, menu de batalha, viewport integrado, tela, persistência, eventos e notificações.
 - `data/achievements.tsv` — catálogo localizado.
 - `data/games.json` — títulos e ordem dos jogos.
 - `data/ui_locales.tsv` — textos de interface carregados pelo mod.
@@ -96,7 +91,7 @@ luajit tests/runtime_harness.lua
 
 O validador do catálogo verifica as 15 colunas do TSV, IDs únicos, três idiomas, operadores, limites de 19–20 conquistas por jogo e a existência de onze objetivos de assinatura com condições distintas. O contrato de eventos confere disponibilidade por geração, caminho de campo, tipo do valor comparado e as diferenças de payload entre Gen 1, Gen 2 e Gen 3. A referência do motor fica fixada em `tests/engine_event_contract.json`, para que a validação não mude silenciosamente quando o upstream evoluir.
 
-O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 216 linhas do catálogo. Também executa os hooks do menu START, das opções gerais e do submenu da equipe, verificando a ordenação de ações e a preservação de movimentos de campo e itens de outros mods. A camada visual percorre a tela de conquistas nos onze títulos e três idiomas, incluindo os cinco jogos de Gen 3 com o formato real de sessão (`generation = 3`, `save = nil`, `session.version`) e verifica a fonte Plain Pixel de 15 px, hinting mono, escala DPI 1 e filtragem nearest. Para o menu de batalha, snapshots sintéticos verificam os quatro comandos, golpes com tipo e PP, Mimic e Safari em Gen 1, alvos de duplas e IDs esparsos, atualização da lista de alvos, descarte de comandos e toques após mudança de fase/revisão, avisos de alvos rejeitados em três idiomas, retorno com B, passagem nativa por seleção forçada de equipe/mensagens, toque, cores e variações por título. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
+O harness carrega o `main.lua` real com uma implementação controlada da Portable Mod API 3 e exercita as 216 linhas do catálogo. Também executa os hooks do menu START, das opções gerais, do submenu da equipe e de `render.viewport`, verificando a preservação das proporções 10:9 e 3:2 em desktop, Android retrato/paisagem, DPI alto e viewports compostos. A camada visual percorre a tela de conquistas nos onze títulos e três idiomas, incluindo os cinco jogos de Gen 3 com o formato real de sessão (`generation = 3`, `save = nil`, `session.version`), verificando os tamanhos das fontes, a filtragem de texto, a largura máxima, o limite vertical do rodapé e a disposição de até três linhas nas descrições. Para o menu de batalha, snapshots sintéticos verificam os quatro comandos, golpes com tipo e PP, Mimic e Safari em Gen 1, alvos de duplas e IDs esparsos, atualização da lista de alvos, descarte de comandos e toques após mudança de fase/revisão, avisos de alvos rejeitados em três idiomas, retorno com B, passagem nativa por seleção forçada de equipe/mensagens, toque, cores e variações por título. Os testes de dados continuam cobrindo bloqueios de sessão, isolamento entre jogos, migração do perfil legado, rejeição de perfis malformados, preservação de progresso válido, criação de save novo e falhas de gravação.
 
 Esses testes automatizados não substituem testes dentro das versões executáveis dos onze jogos. Até aqui, não foi feita uma partida real de validação com ROMs.
 
