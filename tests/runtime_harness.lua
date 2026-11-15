@@ -15,6 +15,7 @@ local fake_graphics_color = { 1, 1, 1, 1 }
 local ui_draw_target
 local ui_shape_target
 local fake_graphics_font = { size = 12 }
+local fake_fonts_created = {}
 love = love or {}
 love.graphics = love.graphics or {}
 love.graphics.getColor = function()
@@ -26,7 +27,20 @@ love.graphics.setColor = function(r, g, b, a)
 end
 love.graphics.getFont = function() return fake_graphics_font end
 love.graphics.setFont = function(font) fake_graphics_font = font end
-love.graphics.newFont = function(size) return { size = size } end
+love.graphics.newFont = function(source, size, hinting, dpiScale)
+    local font = {
+        size = type(source) == "number" and source or size,
+        source = type(source) == "string" and source or nil,
+        hinting = hinting,
+        dpiScale = dpiScale,
+    }
+    function font:setFilter(minFilter, magFilter)
+        self.minFilter = minFilter
+        self.magFilter = magFilter
+    end
+    fake_fonts_created[#fake_fonts_created + 1] = font
+    return font
+end
 love.graphics.print = function(value, x, y)
     if not ui_draw_target then return end
     local r, g, b, a = love.graphics.getColor()
@@ -36,6 +50,9 @@ love.graphics.print = function(value, x, y)
         y = y,
         color = { r, g, b, a },
         font_size = fake_graphics_font and fake_graphics_font.size,
+        font_source = fake_graphics_font and fake_graphics_font.source,
+        font_hinting = fake_graphics_font and fake_graphics_font.hinting,
+        font_dpi_scale = fake_graphics_font and fake_graphics_font.dpiScale,
     }
 end
 love.graphics.rectangle = function(mode, x, y, width, height)
@@ -882,7 +899,17 @@ local function check_gen3_screen(game_id, version_field)
         and env.pushes[1].id == screen_id,
         game_id .. ": clicking the START entry did not push the Gen 3 screen")
 
+    local font_count_before = #fake_fonts_created
     local screen = env.screens[screen_id].new(env.game)
+    check(#fake_fonts_created == font_count_before + 1,
+        game_id .. ": GBA screen did not create its dedicated pixel font")
+    local gen3_font = fake_fonts_created[#fake_fonts_created]
+    check(gen3_font.source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
+        and gen3_font.size == 15 and gen3_font.hinting == "mono"
+        and gen3_font.dpiScale == 1,
+        game_id .. ": GBA screen did not use Plain Pixel at its native design size")
+    check(gen3_font.minFilter == "nearest" and gen3_font.magFilter == "nearest",
+        game_id .. ": GBA pixel font did not use nearest filtering")
     check(screen.gbaCanvas == true,
         game_id .. ": Gen 3 screen did not request the full GBA canvas")
     local original_font = love.graphics.getFont()
@@ -906,20 +933,21 @@ local function check_gen3_screen(game_id, version_field)
         end
     end
     check(full_canvas, game_id .. ": background did not cover the 240x160 GBA screen")
-    local used_native_pixel_font = false
-    local default_font_calls = 0
+    local used_pixel_font = false
+    local wrong_font_calls = 0
     for _, item in ipairs(env.drawn) do
-        if item.renderer == "mod.ui.Font" then
-            used_native_pixel_font = true
-        end
-        if item.font_size ~= nil then
-            default_font_calls = default_font_calls + 1
+        if item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
+            and item.font_size == 15 and item.font_hinting == "mono"
+            and item.font_dpi_scale == 1 then
+            used_pixel_font = true
+        else
+            wrong_font_calls = wrong_font_calls + 1
         end
     end
-    check(used_native_pixel_font,
-        game_id .. ": GBA screen did not use the engine's pixel-font renderer")
-    check(default_font_calls == 0,
-        game_id .. ": GBA screen used the antialiased default LÖVE font")
+    check(used_pixel_font,
+        game_id .. ": GBA screen did not render labels with Plain Pixel")
+    check(wrong_font_calls == 0,
+        game_id .. ": GBA screen rendered labels with a non-pixel font")
     check(love.graphics.getFont() == original_font,
         game_id .. ": GBA achievement screen leaked its font")
 
