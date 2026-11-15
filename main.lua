@@ -778,36 +778,37 @@ return function(mod)
             Font.draw(dictionary.details, 16, 136)
         end
 
-        -- Ruby/Sapphire/Emerald and FireRed/LeafGreen run on the GBA's
-        -- 240x160 display. Do not route their text through the 160x144
-        -- Game Boy tile-font renderer: draw with LÖVE's pixel font instead.
+        -- Ruby/Sapphire/Emerald and FireRed/LeafGreen use a 240x160 canvas.
+        -- Plain Pixel must not be rendered at one large size throughout this
+        -- compact screen: the header, summary, list and details each have
+        -- independent type sizes and line budgets.
         local function draw_gen3()
             local dictionary = TEXT[selected_language()] or TEXT[DEFAULT_LANGUAGE]
+            local fonts = self.gen3_fonts or {}
+            local fallback_font = fonts.body or fonts.list or fonts.title
+
             local function rect(color, x, y, width, height)
                 if not (graphics and graphics.setColor and graphics.rectangle) then return end
                 graphics.setColor(color[1], color[2], color[3], color[4] or 1)
                 graphics.rectangle("fill", x, y, width, height)
             end
-            local function pixel_text_width(value)
+
+            local function pixel_text_width(value, font)
                 value = tostring(value or "")
-                if graphics and type(graphics.getFont) == "function" then
-                    local ok, font = pcall(graphics.getFont)
-                    if ok and font and type(font.getWidth) == "function" then
-                        local measured, width = pcall(font.getWidth, font, value)
-                        if measured and type(width) == "number"
-                            and width == width and width >= 0
-                            and width ~= math.huge then
-                            return width
-                        end
+                font = font or fallback_font
+                if font and type(font.getWidth) == "function" then
+                    local ok, width = pcall(font.getWidth, font, value)
+                    if ok and type(width) == "number" and width == width
+                        and width >= 0 and width < math.huge then
+                        return width
                     end
                 end
-                -- The fallback is only used by reduced/headless LÖVE builds.
-                return glyph_count(value, Font) * 6
+                return glyph_count(value, Font) * 5
             end
 
-            local function clip_pixel_text(value, max_width)
+            local function clip_pixel_text(value, max_width, font)
                 value = tostring(value or "")
-                if pixel_text_width(value) <= max_width then return value end
+                if pixel_text_width(value, font) <= max_width then return value end
                 local suffix = "..."
                 local pieces = {}
                 local index = 1
@@ -818,21 +819,21 @@ return function(mod)
                         or lead < 0xF0 and 3 or 4
                     local character = value:sub(index, math.min(#value, index + length - 1))
                     local candidate = table.concat(pieces) .. character
-                    if pixel_text_width(candidate .. suffix) > max_width then break end
+                    if pixel_text_width(candidate .. suffix, font) > max_width then break end
                     pieces[#pieces + 1] = character
                     index = index + length
                 end
                 return table.concat(pieces) .. suffix
             end
 
-            local function wrap_pixel_text(value, max_width)
+            local function wrap_pixel_text(value, max_width, font)
                 local lines, current = {}, ""
                 for word in tostring(value or ""):gmatch("%S+") do
-                    if pixel_text_width(word) > max_width then
-                        word = clip_pixel_text(word, max_width)
+                    if pixel_text_width(word, font) > max_width then
+                        word = clip_pixel_text(word, max_width, font)
                     end
                     local candidate = current == "" and word or (current .. " " .. word)
-                    if current ~= "" and pixel_text_width(candidate) > max_width then
+                    if current ~= "" and pixel_text_width(candidate, font) > max_width then
                         lines[#lines + 1] = current
                         current = word
                     else
@@ -843,14 +844,15 @@ return function(mod)
                 return lines
             end
 
-            local function label(value, x, y, color, max_width)
+            local function label(value, x, y, color, font, max_width)
                 if not (graphics and graphics.setColor and graphics.print) then return end
-                if max_width then value = clip_pixel_text(value, max_width) end
+                font = font or fallback_font
+                if font and graphics.setFont then graphics.setFont(font) end
+                if max_width then
+                    value = clip_pixel_text(value, max_width, font)
+                end
                 color = color or { 0.12, 0.14, 0.17, 1 }
                 graphics.setColor(color[1], color[2], color[3], color[4] or 1)
-                -- Wrapping and clipping use the active Plain Pixel TTF metrics.
-                -- The legacy Game Boy tile font has different widths and can
-                -- otherwise truncate too early or let text touch the GBA panel.
                 graphics.print(tostring(value or ""), x, y)
             end
 
@@ -861,21 +863,31 @@ return function(mod)
             local success = { 0.14, 0.48, 0.29, 1 }
             local lockedColor = { 0.61, 0.36, 0.12, 1 }
 
+            local titleFont = fonts.title or fallback_font
+            local headingFont = fonts.heading or fallback_font
+            local summaryFont = fonts.summary or fallback_font
+            local filterFont = fonts.filter or fallback_font
+            local listFont = fonts.list or fallback_font
+            local detailFont = fonts.detail or fallback_font
+            local descriptionFont = fonts.description or fallback_font
+            local smallFont = fonts.small or fallback_font
+
+            -- The frame and header are kept inside the 240x160 GBA canvas.
             rect({ 0.035, 0.055, 0.085, 1 }, 0, 0, 240, 160)
             rect(theme.accent, 7, 5, 226, 150)
             rect(paper, 9, 7, 222, 146)
             rect(theme.accent, 9, 7, 222, 23)
-            label(dictionary.title, 16, 10, { 1, 1, 1, 1 }, 210)
-            label(game_title, 16, 34, ink, 210)
+            label(dictionary.title, 16, 8, { 1, 1, 1, 1 }, titleFont, 210)
+            label(game_title, 16, 32, ink, headingFont, 210)
 
             local percentage = total_count > 0
                 and math.floor((unlocked_count / total_count) * 100) or 0
             label(("%s %d/%d (%d%%)"):format(
                 dictionary.progress, unlocked_count, total_count, percentage
-            ), 16, 47, muted, 144)
-            rect(lineColor, 166, 49, 48, 6)
-            rect(theme.accent, 167, 50, math.floor(46 * percentage / 100), 4)
-            rect(lineColor, 14, 58, 212, 1)
+            ), 16, 46, muted, summaryFont, 144)
+            rect(lineColor, 166, 48, 48, 5)
+            rect(theme.accent, 167, 49, math.floor(46 * percentage / 100), 3)
+            rect(lineColor, 14, 60, 212, 1)
 
             if self.detail_index then
                 local achievement = entries[self.detail_index]
@@ -886,25 +898,31 @@ return function(mod)
 
                 local unlocked = is_unlocked(profile, achievement.id)
                 rect(unlocked and { 0.86, 0.95, 0.88, 1 }
-                    or { 0.98, 0.92, 0.82, 1 }, 14, 63, 212, 15)
+                    or { 0.98, 0.92, 0.82, 1 }, 14, 63, 212, 13)
                 label(unlocked and dictionary.unlocked or dictionary.locked,
-                    19, 66, unlocked and success or lockedColor, 198)
-                label(achievement_label(achievement, profile), 16, 84, ink, 208)
+                    19, 64, unlocked and success or lockedColor, filterFont, 198)
+                label(achievement_label(achievement, profile),
+                    16, 80, ink, detailFont, 208)
 
                 local description = achievement_description(achievement, profile)
-                local lines = wrap_pixel_text(description, 208)
-                local y = 98
-                for index = 1, math.min(#lines, 3) do
-                    label(lines[index], 16, y, ink, 208)
-                    y = y + 13
+                local lines = wrap_pixel_text(description, 208, descriptionFont)
+                local maxLines = 4
+                if #lines > maxLines then
+                    lines[maxLines] = clip_pixel_text(
+                        lines[maxLines] .. "...", 208, descriptionFont
+                    )
+                end
+                for index = 1, math.min(#lines, maxLines) do
+                    label(lines[index], 16, 95 + (index - 1) * 10,
+                        ink, descriptionFont, 208)
                 end
 
                 if achievement.mode == "counter" and not unlocked then
                     local current = profile.progress[achievement.id] or 0
                     label(("%d/%d"):format(current, achievement.target),
-                        16, 139, theme.accent, 208)
+                        16, 136, theme.accent, smallFont, 208)
                 end
-                label(dictionary.back, 16, 148, muted, 208)
+                label(dictionary.back, 16, 145, muted, smallFont, 208)
                 return
             end
 
@@ -914,17 +932,20 @@ return function(mod)
                 dictionary.locked_filter,
             }
             local filter_label = "< " .. filters[self.filter_index] .. " >"
-            label(filter_label, 16, 63, theme.accent, 210)
-            rect(lineColor, 14, 76, 212, 1)
+            label(filter_label, 16, 63, theme.accent, filterFont, 210)
+            rect(lineColor, 14, 78, 212, 1)
 
             if total_count == 0 then
-                label(dictionary.empty_title, 16, 87, ink, 208)
-                local lines = wrap_pixel_text(dictionary.empty_description, 208)
-                for index = 1, math.min(#lines, 3) do
-                    label(lines[index], 16, 102 + (index - 1) * 13, muted, 208)
+                label(dictionary.empty_title, 16, 87, ink, detailFont, 208)
+                local lines = wrap_pixel_text(
+                    dictionary.empty_description, 208, descriptionFont
+                )
+                for index = 1, math.min(#lines, 4) do
+                    label(lines[index], 16, 101 + (index - 1) * 10,
+                        muted, descriptionFont, 208)
                 end
             elseif #entries == 0 then
-                label(dictionary.empty_title, 16, 91, muted)
+                label(dictionary.empty_title, 16, 91, muted, detailFont, 208)
             else
                 local visible_rows = 5
                 local max_scroll = math.max(0, #entries - visible_rows)
@@ -949,19 +970,21 @@ return function(mod)
                             local current = profile.progress[achievement.id] or 0
                             suffix = (" %d/%d"):format(current, achievement.target)
                         end
-                        local rowY = 79 + (row - 1) * 13
+                        local rowY = 81 + (row - 1) * 12
                         if entry_index == self.cursor then
                             rect(theme.selected, 14, rowY - 1, 212, 12)
-                            label(">", 18, rowY, theme.accent)
+                            label(">", 18, rowY, theme.accent, listFont, 10)
                         end
                         local line = prefix
                             .. achievement_label(achievement, profile) .. suffix
-                        label(line, 31, rowY, unlocked and success or ink, 194)
+                        label(line, 31, rowY, unlocked and success or ink,
+                            listFont, 194)
                     end
                 end
             end
 
-            label(dictionary.filter .. "  |  " .. dictionary.details, 16, 147, muted, 208)
+            label(dictionary.filter .. "  |  " .. dictionary.details,
+                16, 145, muted, smallFont, 208)
         end
 
         local ok, drawError = pcall(function()
@@ -1006,28 +1029,42 @@ return function(mod)
         new = function(game)
             local game_id = game_id_from(game) or "red"
             local gen3 = is_gen3_runtime(game, game_id)
-            local gen3_font
+            local gen3_fonts
             if gen3 and love and love.graphics
                 and type(love.graphics.newFont) == "function" then
-                local ok, font = pcall(
-                    love.graphics.newFont,
-                    "assets/fonts/plainpixel/PlainPixel-Regular.ttf",
-                    15,
-                    "mono",
-                    1
-                )
-                if ok then
-                    gen3_font = font
-                    if font and type(font.setFilter) == "function" then
-                        pcall(font.setFilter, font, "nearest", "nearest")
+                gen3_fonts = {}
+                local sizes = {
+                    title = 15,
+                    heading = 11,
+                    summary = 8,
+                    filter = 9,
+                    list = 10,
+                    detail = 10,
+                    description = 9,
+                    small = 8,
+                }
+                for role, size in pairs(sizes) do
+                    local ok, font = pcall(
+                        love.graphics.newFont,
+                        "assets/fonts/plainpixel/PlainPixel-Regular.ttf",
+                        size,
+                        "mono",
+                        1
+                    )
+                    if ok and font then
+                        if type(font.setFilter) == "function" then
+                            pcall(font.setFilter, font, "nearest", "nearest")
+                        end
+                        gen3_fonts[role] = font
                     end
                 end
+                if not gen3_fonts.title then gen3_fonts = nil end
             end
 
             local self = {
                 isOpaque = true,
                 gbaCanvas = gen3,
-                gen3_font = gen3_font,
+                gen3_fonts = gen3_fonts,
                 filter_index = 1,
                 cursor = 1,
                 scroll = 0,
