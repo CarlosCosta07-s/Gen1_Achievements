@@ -1622,7 +1622,7 @@ check(moveText:find("THUNDERBOLT", 1, true) ~= nil
     and moveText:find("ELECTRIC", 1, true) ~= nil
     and moveText:find("PP", 1, true) ~= nil
     and moveText:find("15/15", 1, true) ~= nil,
-    "native move selector omitted the move, type or PP details")
+    "native move selector omitted the move, type or PP details; rendered=[" .. moveText .. "]")
 command_env:run_hook(
     "input.gamepad", nil, command_env.game, { phase = "pressed", button = "a" }
 )
