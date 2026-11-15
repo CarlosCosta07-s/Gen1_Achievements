@@ -2265,8 +2265,9 @@ local scaled_back_consumed = scaled_env:run_hook(
 )
 check(scaled_back_consumed == true
     and #scaled_env:submitted() == 1
-    and scaled_env:submitted()[1].kind == "back",
-    "scaled/offset pointer coordinates did not hit the logical B: BACK target")
+    and scaled_env:submitted()[1].kind == "move"
+    and scaled_env:submitted()[1].slot == 1,
+    "scaled/offset pointer coordinates did not hit the first native move row")
 
 -- Android/iOS virtual controls inject buttons through Input directly.
 -- The input.step bridge must route those touch edges to our menu and mask
@@ -2379,8 +2380,6 @@ check(mimic_rendered:find("THUNDERBOLT", 1, true) ~= nil
     and mimic_env:run_hook("battle.bottom_ui_visible", true,
         { game = mimic_env.game }) == false,
     "native Mimic selector did not render its move choices in the original window")
-check(mimic_env:run_hook("battle.bottom_ui_visible", true, { game = mimic_env.game }) == false,
-    "native battle panel was not replaced during Mimic selection")
 mimic_env:run_hook(
     "input.key", nil, mimic_env.game, { phase = "pressed", key = "z" }
 )
@@ -2448,7 +2447,7 @@ for _, prompt in ipairs({ "party", "advance", "locked" }) do
     phase_env:run_hook("input.step", nil, phase_env.game, 1 / 60)
     check(phase_env.game.input.wasPressed == phase_original_was_pressed,
         prompt .. ": native touch input was not restored after leaving the custom menu")
-    check(phase_env:run_hook("battle.bottom_ui_visible", true, {}) == true,
+    check(phase_env:run_hook("battle.bottom_ui_visible", true, { game = phase_env.game }) == true,
         prompt .. ": native battle panel was hidden outside a custom prompt")
     check(phase_env:run_hook(
         "input.key", "native-key", phase_env.game,
@@ -2464,7 +2463,7 @@ link_env:set_battle_snapshot({
     prompt = "menu", kind = "link", revision = 25,
     player = {}, enemy = {}, party = {}, moves = {}, items = {},
 })
-check(link_env:run_hook("battle.bottom_ui_visible", true, {}) == true
+check(link_env:run_hook("battle.bottom_ui_visible", true, { game = link_env.game }) == true
     and link_env:run_hook(
         "input.key", "link-native", link_env.game,
         { phase = "pressed", key = "z" }
@@ -2473,7 +2472,7 @@ check(link_env:run_hook("battle.bottom_ui_visible", true, {}) == true
 
 -- The bottom battle layer is hidden only while the replacement UI is active.
 local hidden = command_env:run_hook(
-    "battle.bottom_ui_visible", true, {}
+    "battle.bottom_ui_visible", true, { game = command_env.game }
 )
 check(hidden == false,
     "native battle command panel was not hidden while the replacement is active")
@@ -2481,7 +2480,7 @@ command_env:set_battle_snapshot({
     prompt = "locked", kind = "wild", revision = 5,
 })
 local visible = command_env:run_hook(
-    "battle.bottom_ui_visible", true, {}
+    "battle.bottom_ui_visible", true, { game = command_env.game }
 )
 check(visible == true,
     "native battle UI was hidden during a non-interactive battle phase")
