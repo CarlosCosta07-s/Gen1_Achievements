@@ -67,6 +67,8 @@ love.graphics.print = function(value, x, y)
         font_source = fake_graphics_font and fake_graphics_font.source,
         font_hinting = fake_graphics_font and fake_graphics_font.hinting,
         font_dpi_scale = fake_graphics_font and fake_graphics_font.dpiScale,
+        font_min_filter = fake_graphics_font and fake_graphics_font.minFilter,
+        font_mag_filter = fake_graphics_font and fake_graphics_font.magFilter,
         font_width = font_width,
         font_height = fake_graphics_font and type(fake_graphics_font.getHeight) == "function"
             and fake_graphics_font:getHeight() or nil,
@@ -287,6 +289,7 @@ local function make_environment(game_id, initial_cache, language)
                 or name == "input.key"
                 or name == "input.gamepad"
                 or name == "input.pointer"
+                or name == "render.viewport"
                 or name == "render.hud"
                 or name == "core.update"
         end
@@ -695,6 +698,60 @@ end
 check(count_unlocks(created_env, "red_evolve_5") == 1,
     "save.created did not open the new-game session")
 
+-- The main mod now owns the viewport policy: preserve the native aspect ratio
+-- while using the largest centered rectangle, including high-DPI Android.
+local viewport_env = make_environment("emerald")
+local desktop_ctx = {
+    width = 1536, height = 864, pixelWidth = 1536, pixelHeight = 864,
+    dpiX = 1, dpiY = 1, generation = 3,
+}
+local full_window = { x = 0, y = 0, width = 1536, height = 864 }
+local desktop_fit = viewport_env:run_hook("render.viewport", full_window, desktop_ctx)
+check(desktop_fit.width == 1296 and desktop_fit.height == 864
+    and desktop_fit.x == 120 and desktop_fit.y == 0,
+    "integrated GBA viewport did not maximize a 16:9 desktop without stretching")
+check(math.abs(desktop_fit.width / desktop_fit.height - 1.5) < 0.002,
+    "integrated GBA viewport changed the native 3:2 aspect ratio")
+
+local android_portrait_ctx = {
+    width = 432, height = 960, pixelWidth = 864, pixelHeight = 1920,
+    dpiX = 2, dpiY = 2, generation = 3,
+}
+local android_portrait_base = { x = 0, y = 0, width = 432, height = 960 }
+local android_portrait_fit = viewport_env:run_hook(
+    "render.viewport", android_portrait_base, android_portrait_ctx
+)
+check(android_portrait_fit.width == 432 and android_portrait_fit.height == 288
+    and android_portrait_fit.x == 0 and android_portrait_fit.y == 336,
+    "integrated GBA viewport did not preserve the aspect ratio in portrait Android")
+
+local gen1_ctx = {
+    width = 1920, height = 1080, dpiX = 1, dpiY = 1, generation = 1,
+}
+local gen1_base = { x = 0, y = 0, width = 1920, height = 1080 }
+local gen1_fit = viewport_env:run_hook("render.viewport", gen1_base, gen1_ctx)
+check(math.abs(gen1_fit.width / gen1_fit.height - (10 / 9)) < 0.002
+    and gen1_fit.width == 1200 and gen1_fit.height == 1080,
+    "integrated Gen 1 viewport did not preserve the 10:9 screen ratio")
+
+local nested_ctx = {
+    width = 1920, height = 1080, dpiX = 1, dpiY = 1, generation = 3,
+}
+local nested_base = { x = 100, y = 40, width = 800, height = 700, capture = true }
+local nested_fit = viewport_env:run_hook("render.viewport", nested_base, nested_ctx)
+check(nested_fit.x == 100 and nested_fit.y == 123
+    and nested_fit.width == 800 and nested_fit.height == 533
+    and nested_fit.capture == true,
+    "integrated viewport escaped a downstream layout or dropped its capture request")
+
+local unknown_ctx = { width = 900, height = 600, generation = 4 }
+local unknown_base = { x = 0, y = 0, width = 900, height = 600 }
+check(viewport_env:run_hook("render.viewport", unknown_base, unknown_ctx) == unknown_base,
+    "unknown generations must keep the downstream viewport unchanged")
+local invalid_ctx = { width = 0, height = 0, generation = 3 }
+check(viewport_env:run_hook("render.viewport", unknown_base, invalid_ctx) == unknown_base,
+    "invalid window dimensions must fail open to the downstream viewport")
+
 -- Exercise the actual mod-owned menu hook and screen implementation.
 -- This covers the UI surface that the previous event-only harness did not run.
 local ui_env = make_environment("red")
@@ -882,14 +939,23 @@ for game_id, game_title in pairs(game_titles) do
             or game_id == "ruby" or game_id == "sapphire" or game_id == "emerald"
         if is_gen3 then
             for _, item in ipairs(env.drawn) do
-                local valid_size = item.font_size == 8 or item.font_size == 9
-                    or item.font_size == 10 or item.font_size == 11
-                    or item.font_size == 15
-                check(item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
-                    and valid_size and item.font_hinting == "mono"
-                    and item.font_dpi_scale == 1 and type(item.font_width) == "number"
+                local pixel_font = item.font_source
+                    == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
+                local font_is_valid
+                if pixel_font then
+                    font_is_valid = (item.font_size == 15 or item.font_size == 11)
+                        and item.font_hinting == "mono" and item.font_dpi_scale == 1
+                        and item.font_min_filter == "nearest"
+                        and item.font_mag_filter == "nearest"
+                else
+                    font_is_valid = item.font_source == nil
+                        and (item.font_size == 10 or item.font_size == 11)
+                        and item.font_min_filter == "linear"
+                        and item.font_mag_filter == "linear"
+                end
+                check(font_is_valid and type(item.font_width) == "number"
                     and type(item.font_height) == "number",
-                    game_id .. "/" .. language .. ": a GBA label bypassed its role-specific Plain Pixel font")
+                    game_id .. "/" .. language .. ": GBA text did not use its readable font role")
                 local limit = 210
                 if item.x == 31 and item.y >= 81 and item.y < 141 then
                     limit = 194
@@ -901,7 +967,7 @@ for game_id, game_title in pairs(game_titles) do
                 check(item.font_width <= limit,
                     game_id .. "/" .. language .. ": text exceeded its pixel width budget at x="
                         .. tostring(item.x) .. ", y=" .. tostring(item.y))
-                check(item.y + item.font_height <= 153,
+                check(item.y + item.font_height <= 152,
                     game_id .. "/" .. language .. ": text escaped the GBA panel vertically")
             end
         end
@@ -919,9 +985,9 @@ for game_id, game_title in pairs(game_titles) do
 end
 
 -- Match the real Game3 owner: it has generation=3, a nil save while
--- playing, and keeps the selected version on session.version. Ruby-family
--- games use the full 240x160 canvas and the engine's generation-aware pixel
--- font; the default LÖVE font must not be used for achievement labels.
+-- playing, and keeps the selected version on session.version. The GBA screen
+-- keeps a pixel face for its title but uses a larger, smoother LÖVE sans font
+-- for progress, list rows, descriptions and controls.
 local function check_gen3_screen(game_id, version_field)
     local env = make_environment(game_id)
     env.game.generation = 3
@@ -949,16 +1015,24 @@ local function check_gen3_screen(game_id, version_field)
     check(#fake_fonts_created == font_count_before + 8,
         game_id .. ": GBA screen did not create all role-specific pixel fonts")
     local expected_font_sizes = {
-        title = 15, heading = 11, summary = 8, filter = 9,
-        list = 10, detail = 10, description = 9, small = 8,
+        title = 15, heading = 11, summary = 11, filter = 10,
+        list = 11, detail = 11, description = 11, small = 10,
     }
     for role, size in pairs(expected_font_sizes) do
         local font = screen.gen3_fonts and screen.gen3_fonts[role]
-        check(font ~= nil and font.source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
-            and font.size == size and font.hinting == "mono" and font.dpiScale == 1,
-            game_id .. ": GBA " .. role .. " did not use its dedicated Plain Pixel size")
-        check(font.minFilter == "nearest" and font.magFilter == "nearest",
-            game_id .. ": GBA " .. role .. " font did not use nearest filtering")
+        local pixel_heading = role == "title" or role == "heading"
+        check(font ~= nil and font.size == size,
+            game_id .. ": GBA " .. role .. " font had the wrong size")
+        if pixel_heading then
+            check(font.source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
+                and font.hinting == "mono" and font.dpiScale == 1
+                and font.minFilter == "nearest" and font.magFilter == "nearest",
+                game_id .. ": GBA heading did not retain its crisp pixel font")
+        else
+            check(font.source == nil and font.minFilter == "linear"
+                and font.magFilter == "linear",
+                game_id .. ": GBA body copy did not use the smoother readable font")
+        end
     end
     check(screen.gbaCanvas == true,
         game_id .. ": Gen 3 screen did not request the full GBA canvas")
@@ -983,27 +1057,28 @@ local function check_gen3_screen(game_id, version_field)
         end
     end
     check(full_canvas, game_id .. ": background did not cover the 240x160 GBA screen")
-    local used_roles = {}
-    local wrong_font_calls = 0
+    local pixel_sizes = {}
+    local readable_sizes = {}
     for _, item in ipairs(env.drawn) do
-        if item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf"
-            and expected_font_sizes.title == 15
-            and item.font_hinting == "mono" and item.font_dpi_scale == 1 then
-            used_roles[item.font_size] = true
-            check(type(item.font_width) == "number" and item.font_width <= 210,
-                game_id .. ": GBA label exceeded the 210px panel width")
-            check(type(item.font_height) == "number"
-                and item.y + item.font_height <= 153,
-                game_id .. ": GBA label escaped the panel vertically")
+        if item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf" then
+            pixel_sizes[item.font_size] = true
+            check(item.font_hinting == "mono" and item.font_dpi_scale == 1
+                and item.font_min_filter == "nearest",
+                game_id .. ": GBA heading lost crisp pixel rendering")
         else
-            wrong_font_calls = wrong_font_calls + 1
+            readable_sizes[item.font_size] = true
+            check(item.font_source == nil and item.font_min_filter == "linear",
+                game_id .. ": GBA body text lost its readable font filtering")
         end
+        check(type(item.font_width) == "number" and item.font_width <= 210,
+            game_id .. ": GBA label exceeded the 210px panel width")
+        check(type(item.font_height) == "number"
+            and item.y + item.font_height <= 152,
+            game_id .. ": GBA label escaped the panel vertically")
     end
-    check(used_roles[15] and used_roles[11] and used_roles[10]
-        and used_roles[9] and used_roles[8],
-        game_id .. ": GBA screen did not use all five text sizes")
-    check(wrong_font_calls == 0,
-        game_id .. ": GBA screen rendered labels with a non-pixel font")
+    check(pixel_sizes[15] and pixel_sizes[11]
+        and readable_sizes[10] and readable_sizes[11],
+        game_id .. ": GBA screen did not use both pixel headings and readable body fonts")
     check(love.graphics.getFont() == original_font,
         game_id .. ": GBA achievement screen leaked its font")
 
@@ -1029,21 +1104,20 @@ local function check_gen3_screen(game_id, version_field)
         game_id .. ": A did not open an achievement detail on the GBA screen")
     local detail_description_lines = 0
     for _, item in ipairs(env.drawn) do
-        if item.font_source == "assets/fonts/plainpixel/PlainPixel-Regular.ttf" then
-            local limit = item.x == 19 and 198 or 208
-            check(item.font_width <= limit,
-                game_id .. ": detail text exceeded the GBA pixel width budget")
-            check(item.y + item.font_height <= 153,
-                game_id .. ": detail text escaped the panel vertically")
-            if item.y >= 95 and item.y <= 125 and item.x == 16 then
-                detail_description_lines = detail_description_lines + 1
-                check(item.font_size == 9,
-                    game_id .. ": description did not use the compact detail font")
-            end
+        local limit = item.x == 19 and 198 or 208
+        check(item.font_width <= limit,
+            game_id .. ": detail text exceeded the GBA width budget")
+        check(item.y + item.font_height <= 152,
+            game_id .. ": detail text escaped the panel vertically")
+        if item.y >= 96 and item.y <= 120 and item.x == 16
+            and item.font_source == nil then
+            detail_description_lines = detail_description_lines + 1
+            check(item.font_size == 11,
+                game_id .. ": description did not use the readable body font")
         end
     end
-    check(detail_description_lines >= 1 and detail_description_lines <= 4,
-        game_id .. ": detail description did not respect its four-line budget")
+    check(detail_description_lines >= 1 and detail_description_lines <= 3,
+        game_id .. ": detail description did not respect its three-line budget")
 
     env:press("b")
     screen:update(0)
