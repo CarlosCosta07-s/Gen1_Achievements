@@ -8,7 +8,7 @@ A implementação usa as superfícies oficiais da Portable Mod API 3:
 - `mod.ui.push` para abrir a tela a partir da opção do menu.
 - Tela com `update(dt)` e `draw()`, usando `game.input:wasPressed` para D-pad, A, B e START.
 
-O mesmo contrato é usado nas três gerações. A opção do menu ajusta sua largura automaticamente com base no maior rótulo, permitindo nomes localizados mais longos. No canvas GBA (240×160), a tela usa Plain Pixel em 15 px, hinting mono, DPI 1 e filtro nearest; truncamento e quebra de linhas medem a fonte TTF ativa por pixel, em vez de reutilizar a largura da fonte de tiles de Game Boy. A lista mantém cinco linhas e separa o rodapé e a tela de detalhes. O hook `ui.start_menu.items` é o ponto de extensão do menu do jogo.
+O mesmo contrato é usado nas três gerações. A opção do menu ajusta sua largura automaticamente com base no maior rótulo, permitindo nomes localizados mais longos. No canvas GBA (240×160), a tela usa uma hierarquia de fontes Plain Pixel por função (15/11/10/9/8 px), todas com hinting mono, DPI 1 e filtro nearest. Cabeçalho, resumo, filtro, lista, título de detalhe, descrição e rodapé têm áreas e tamanhos separados. Truncamento e quebra de linhas medem a fonte TTF ativa de cada área por pixel, em vez de reutilizar a largura da fonte de tiles de Game Boy. A lista mantém cinco linhas com altura inferior ao espaçamento da linha, e a tela de detalhes limita a descrição a quatro linhas, mantendo contador e retorno dentro da moldura. O hook `ui.start_menu.items` é o ponto de extensão do menu do jogo.
 
 ## Comportamento de console
 
