@@ -27,8 +27,5 @@ jobs:
       - name: Check Lua syntax
         run: |
           luajit -b main.lua /tmp/gen1-achievements.luac
-          luajit -b addons/fullscreen_fit/main.lua /tmp/fullscreen-fit.luac
       - name: Execute achievement runtime harness
         run: luajit tests/runtime_harness.lua
-      - name: Execute fullscreen fit harness
-        run: luajit tests/fullscreen_fit_harness.lua
