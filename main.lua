@@ -788,13 +788,69 @@ return function(mod)
                 graphics.setColor(color[1], color[2], color[3], color[4] or 1)
                 graphics.rectangle("fill", x, y, width, height)
             end
-            local function label(value, x, y, color)
+            local function pixel_text_width(value)
+                value = tostring(value or "")
+                if graphics and type(graphics.getFont) == "function" then
+                    local ok, font = pcall(graphics.getFont)
+                    if ok and font and type(font.getWidth) == "function" then
+                        local measured, width = pcall(font.getWidth, font, value)
+                        if measured and type(width) == "number"
+                            and width == width and width >= 0
+                            and width ~= math.huge then
+                            return width
+                        end
+                    end
+                end
+                -- The fallback is only used by reduced/headless LÖVE builds.
+                return glyph_count(value, Font) * 6
+            end
+
+            local function clip_pixel_text(value, max_width)
+                value = tostring(value or "")
+                if pixel_text_width(value) <= max_width then return value end
+                local suffix = "..."
+                local pieces = {}
+                local index = 1
+                while index <= #value do
+                    local lead = value:byte(index)
+                    local length = lead < 0x80 and 1
+                        or lead < 0xE0 and 2
+                        or lead < 0xF0 and 3 or 4
+                    local character = value:sub(index, math.min(#value, index + length - 1))
+                    local candidate = table.concat(pieces) .. character
+                    if pixel_text_width(candidate .. suffix) > max_width then break end
+                    pieces[#pieces + 1] = character
+                    index = index + length
+                end
+                return table.concat(pieces) .. suffix
+            end
+
+            local function wrap_pixel_text(value, max_width)
+                local lines, current = {}, ""
+                for word in tostring(value or ""):gmatch("%S+") do
+                    if pixel_text_width(word) > max_width then
+                        word = clip_pixel_text(word, max_width)
+                    end
+                    local candidate = current == "" and word or (current .. " " .. word)
+                    if current ~= "" and pixel_text_width(candidate) > max_width then
+                        lines[#lines + 1] = current
+                        current = word
+                    else
+                        current = candidate
+                    end
+                end
+                if current ~= "" then lines[#lines + 1] = current end
+                return lines
+            end
+
+            local function label(value, x, y, color, max_width)
                 if not (graphics and graphics.setColor and graphics.print) then return end
+                if max_width then value = clip_pixel_text(value, max_width) end
                 color = color or { 0.12, 0.14, 0.17, 1 }
                 graphics.setColor(color[1], color[2], color[3], color[4] or 1)
-                -- Use the engine-bundled Plain Pixel face at its 15px design
-                -- grid. The default LÖVE face at 8px is antialiased and looks
-                -- soft when the 240x160 GBA canvas is enlarged for display.
+                -- Wrapping and clipping use the active Plain Pixel TTF metrics.
+                -- The legacy Game Boy tile font has different widths and can
+                -- otherwise truncate too early or let text touch the GBA panel.
                 graphics.print(tostring(value or ""), x, y)
             end
 
@@ -809,14 +865,14 @@ return function(mod)
             rect(theme.accent, 7, 5, 226, 150)
             rect(paper, 9, 7, 222, 146)
             rect(theme.accent, 9, 7, 222, 23)
-            label(dictionary.title, 16, 10, { 1, 1, 1, 1 })
-            label(game_title, 16, 34, ink)
+            label(dictionary.title, 16, 10, { 1, 1, 1, 1 }, 210)
+            label(game_title, 16, 34, ink, 210)
 
             local percentage = total_count > 0
                 and math.floor((unlocked_count / total_count) * 100) or 0
             label(("%s %d/%d (%d%%)"):format(
                 dictionary.progress, unlocked_count, total_count, percentage
-            ), 16, 47, muted)
+            ), 16, 47, muted, 144)
             rect(lineColor, 166, 49, 48, 6)
             rect(theme.accent, 167, 50, math.floor(46 * percentage / 100), 4)
             rect(lineColor, 14, 58, 212, 1)
@@ -832,23 +888,23 @@ return function(mod)
                 rect(unlocked and { 0.86, 0.95, 0.88, 1 }
                     or { 0.98, 0.92, 0.82, 1 }, 14, 63, 212, 15)
                 label(unlocked and dictionary.unlocked or dictionary.locked,
-                    19, 66, unlocked and success or lockedColor)
-                label(clip_text(achievement_label(achievement, profile), 38, Font),
-                    16, 84, ink)
+                    19, 66, unlocked and success or lockedColor, 198)
+                label(achievement_label(achievement, profile), 16, 84, ink, 208)
 
                 local description = achievement_description(achievement, profile)
-                local lines = wrap_text(description, 38, Font)
-                local y = 100
+                local lines = wrap_pixel_text(description, 208)
+                local y = 98
                 for index = 1, math.min(#lines, 3) do
-                    label(lines[index], 16, y, ink)
-                    y = y + 12
+                    label(lines[index], 16, y, ink, 208)
+                    y = y + 13
                 end
 
                 if achievement.mode == "counter" and not unlocked then
                     local current = profile.progress[achievement.id] or 0
-                    label(("%d/%d"):format(current, achievement.target), 16, 137, theme.accent)
+                    label(("%d/%d"):format(current, achievement.target),
+                        16, 139, theme.accent, 208)
                 end
-                label(dictionary.back, 16, 146, muted)
+                label(dictionary.back, 16, 148, muted, 208)
                 return
             end
 
@@ -858,14 +914,14 @@ return function(mod)
                 dictionary.locked_filter,
             }
             local filter_label = "< " .. filters[self.filter_index] .. " >"
-            label(clip_text(filter_label, 38, Font), 16, 63, theme.accent)
+            label(filter_label, 16, 63, theme.accent, 210)
             rect(lineColor, 14, 76, 212, 1)
 
             if total_count == 0 then
-                label(dictionary.empty_title, 16, 87, ink)
-                local lines = wrap_text(dictionary.empty_description, 38, Font)
+                label(dictionary.empty_title, 16, 87, ink, 208)
+                local lines = wrap_pixel_text(dictionary.empty_description, 208)
                 for index = 1, math.min(#lines, 3) do
-                    label(lines[index], 16, 104 + (index - 1) * 12, muted)
+                    label(lines[index], 16, 102 + (index - 1) * 13, muted, 208)
                 end
             elseif #entries == 0 then
                 label(dictionary.empty_title, 16, 91, muted)
@@ -893,21 +949,19 @@ return function(mod)
                             local current = profile.progress[achievement.id] or 0
                             suffix = (" %d/%d"):format(current, achievement.target)
                         end
-                        local rowY = 79 + (row - 1) * 12
+                        local rowY = 79 + (row - 1) * 13
                         if entry_index == self.cursor then
-                            rect(theme.selected, 14, rowY - 1, 212, 11)
+                            rect(theme.selected, 14, rowY - 1, 212, 12)
                             label(">", 18, rowY, theme.accent)
                         end
-                        local line = clip_text(
-                            prefix .. achievement_label(achievement, profile) .. suffix,
-                            38, Font
-                        )
-                        label(line, 31, rowY, unlocked and success or ink)
+                        local line = prefix
+                            .. achievement_label(achievement, profile) .. suffix
+                        label(line, 31, rowY, unlocked and success or ink, 194)
                     end
                 end
             end
 
-            label(dictionary.filter .. "  |  " .. dictionary.details, 16, 145, muted)
+            label(dictionary.filter .. "  |  " .. dictionary.details, 16, 147, muted, 208)
         end
 
         local ok, drawError = pcall(function()
