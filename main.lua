@@ -179,6 +179,91 @@ local function wrap_text(text, maximum, font)
     return lines
 end
 
+local NATIVE_VIEWPORT_ASPECTS = {
+    [1] = 160 / 144,
+    [2] = 160 / 144,
+    [3] = 240 / 160,
+}
+
+local function finite_number(value)
+    return type(value) == "number"
+        and value == value
+        and value > -math.huge
+        and value < math.huge
+end
+
+local function positive_number(value)
+    return finite_number(value) and value > 0
+end
+
+-- Fit the native game image into the largest centered rectangle available.
+-- The same aspect ratio is applied to both axes, so sprites are never stretched.
+-- The engine continues drawing touch controls in full-window coordinates.
+local function fit_native_viewport(ctx, base)
+    if type(ctx) ~= "table" then return base end
+    local aspect = NATIVE_VIEWPORT_ASPECTS[tonumber(ctx.generation)]
+    if not aspect then return base end
+
+    local window_width = tonumber(ctx.width)
+    local window_height = tonumber(ctx.height)
+    if not positive_number(window_width) or not positive_number(window_height) then
+        return base
+    end
+
+    if type(base) ~= "table" then
+        base = {
+            x = 0, y = 0,
+            width = window_width, height = window_height,
+        }
+    end
+
+    local rect_x = finite_number(base.x) and base.x or 0
+    local rect_y = finite_number(base.y) and base.y or 0
+    rect_x = math.max(0, math.min(math.floor(rect_x), math.floor(window_width) - 1))
+    rect_y = math.max(0, math.min(math.floor(rect_y), math.floor(window_height) - 1))
+
+    local rect_width = positive_number(base.width) and base.width or window_width
+    local rect_height = positive_number(base.height) and base.height or window_height
+    rect_width = math.max(1, math.min(
+        math.floor(rect_width), math.floor(window_width) - rect_x
+    ))
+    rect_height = math.max(1, math.min(
+        math.floor(rect_height), math.floor(window_height) - rect_y
+    ))
+
+    local dpi_x = positive_number(ctx.dpiX) and ctx.dpiX or 1
+    local dpi_y = positive_number(ctx.dpiY) and ctx.dpiY or 1
+    local available_width = rect_width * dpi_x
+    local available_height = rect_height * dpi_y
+
+    local fitted_width = available_width
+    local fitted_height = fitted_width / aspect
+    if fitted_height > available_height then
+        fitted_height = available_height
+        fitted_width = fitted_height * aspect
+    end
+
+    local fitted_window_width = math.max(1, math.min(
+        math.floor(fitted_width / dpi_x + 0.5), rect_width
+    ))
+    local fitted_window_height = math.max(1, math.min(
+        math.floor(fitted_height / dpi_y + 0.5), rect_height
+    ))
+
+    if fitted_window_width == rect_width and fitted_window_height == rect_height then
+        return base
+    end
+
+    local result = {
+        x = rect_x + math.floor((rect_width - fitted_window_width) / 2),
+        y = rect_y + math.floor((rect_height - fitted_window_height) / 2),
+        width = fitted_window_width,
+        height = fitted_window_height,
+    }
+    if base.capture == true then result.capture = true end
+    return result
+end
+
 local function make_empty_profile()
     return { unlocked = {}, progress = {}, order = {} }
 end
@@ -203,6 +288,15 @@ return function(mod)
             default = DEFAULT_LANGUAGE,
         },
     })
+
+    -- Viewport fitting belongs to the achievement mod itself. Users do not
+    -- need to install or enable a second addon to use the full available area.
+    if mod:supports("hooks", "render.viewport") then
+        mod.hooks:wrap("render.viewport", function(next, ctx)
+            local base = next(ctx)
+            return fit_native_viewport(ctx, base)
+        end)
+    end
 
     local function selected_language()
         return normalize_language(mod.options:get(LANGUAGE_OPTION))
@@ -897,32 +991,35 @@ return function(mod)
                 end
 
                 local unlocked = is_unlocked(profile, achievement.id)
+                local status_text = unlocked and dictionary.unlocked or dictionary.locked
+                if achievement.mode == "counter" and not unlocked then
+                    local current = profile.progress[achievement.id] or 0
+                    status_text = status_text .. (" %d/%d"):format(
+                        current, achievement.target
+                    )
+                end
                 rect(unlocked and { 0.86, 0.95, 0.88, 1 }
                     or { 0.98, 0.92, 0.82, 1 }, 14, 63, 212, 13)
-                label(unlocked and dictionary.unlocked or dictionary.locked,
-                    19, 64, unlocked and success or lockedColor, filterFont, 198)
+                label(status_text, 19, 64,
+                    unlocked and success or lockedColor, filterFont, 198)
                 label(achievement_label(achievement, profile),
                     16, 80, ink, detailFont, 208)
 
                 local description = achievement_description(achievement, profile)
                 local lines = wrap_pixel_text(description, 208, descriptionFont)
-                local maxLines = 4
+                local maxLines = 3
                 if #lines > maxLines then
                     lines[maxLines] = clip_pixel_text(
                         lines[maxLines] .. "...", 208, descriptionFont
                     )
                 end
                 for index = 1, math.min(#lines, maxLines) do
-                    label(lines[index], 16, 95 + (index - 1) * 10,
+                    label(lines[index], 16, 96 + (index - 1) * 12,
                         ink, descriptionFont, 208)
                 end
 
-                if achievement.mode == "counter" and not unlocked then
-                    local current = profile.progress[achievement.id] or 0
-                    label(("%d/%d"):format(current, achievement.target),
-                        16, 136, theme.accent, smallFont, 208)
-                end
-                label(dictionary.back, 16, 145, muted, smallFont, 208)
+                -- The footer stays above the lower frame on both phone and PC.
+                label(dictionary.back, 16, 142, muted, smallFont, 208)
                 return
             end
 
@@ -984,7 +1081,7 @@ return function(mod)
             end
 
             label(dictionary.filter .. "  |  " .. dictionary.details,
-                16, 145, muted, smallFont, 208)
+                16, 142, muted, smallFont, 208)
         end
 
         local ok, drawError = pcall(function()
@@ -1036,24 +1133,33 @@ return function(mod)
                 local sizes = {
                     title = 15,
                     heading = 11,
-                    summary = 8,
-                    filter = 9,
-                    list = 10,
-                    detail = 10,
-                    description = 9,
-                    small = 8,
+                    summary = 11,
+                    filter = 10,
+                    list = 11,
+                    detail = 11,
+                    description = 11,
+                    small = 10,
                 }
                 for role, size in pairs(sizes) do
-                    local ok, font = pcall(
-                        love.graphics.newFont,
-                        "assets/fonts/plainpixel/PlainPixel-Regular.ttf",
-                        size,
-                        "mono",
-                        1
-                    )
+                    local pixel_heading = role == "title" or role == "heading"
+                    local ok, font
+                    if pixel_heading then
+                        ok, font = pcall(
+                            love.graphics.newFont,
+                            "assets/fonts/plainpixel/PlainPixel-Regular.ttf",
+                            size,
+                            "mono",
+                            1
+                        )
+                    else
+                        -- The default LÖVE sans font has clearer body letterforms
+                        -- than the decorative pixel face at very small GBA sizes.
+                        ok, font = pcall(love.graphics.newFont, size)
+                    end
                     if ok and font then
                         if type(font.setFilter) == "function" then
-                            pcall(font.setFilter, font, "nearest", "nearest")
+                            local filter = pixel_heading and "nearest" or "linear"
+                            pcall(font.setFilter, font, filter, filter)
                         end
                         gen3_fonts[role] = font
                     end
