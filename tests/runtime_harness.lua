@@ -12,6 +12,9 @@ local function check(condition, message)
 end
 
 local fake_graphics_color = { 1, 1, 1, 1 }
+local ui_draw_target
+local ui_shape_target
+local fake_graphics_font = { size = 12 }
 love = love or {}
 love.graphics = love.graphics or {}
 love.graphics.getColor = function()
@@ -20,6 +23,32 @@ love.graphics.getColor = function()
 end
 love.graphics.setColor = function(r, g, b, a)
     fake_graphics_color = { r, g, b, a or 1 }
+end
+love.graphics.getFont = function() return fake_graphics_font end
+love.graphics.setFont = function(font) fake_graphics_font = font end
+love.graphics.newFont = function(size) return { size = size } end
+love.graphics.print = function(value, x, y)
+    if not ui_draw_target then return end
+    local r, g, b, a = love.graphics.getColor()
+    ui_draw_target[#ui_draw_target + 1] = {
+        text = tostring(value),
+        x = x,
+        y = y,
+        color = { r, g, b, a },
+        font_size = fake_graphics_font and fake_graphics_font.size,
+    }
+end
+love.graphics.rectangle = function(mode, x, y, width, height)
+    if not ui_shape_target then return end
+    local r, g, b, a = love.graphics.getColor()
+    ui_shape_target[#ui_shape_target + 1] = {
+        mode = mode,
+        x = x,
+        y = y,
+        width = width,
+        height = height,
+        color = { r, g, b, a },
+    }
 end
 
 local function split_tabs(line)
@@ -75,6 +104,7 @@ local function make_environment(game_id, initial_cache, language)
     local pressed = {}
     local touch_down = {}
     local drawn = {}
+    local ui_shapes = {}
     local pushes = {}
     local write_count = 0
     local fail_writes = false
@@ -244,6 +274,7 @@ local function make_environment(game_id, initial_cache, language)
         hook_wrappers = hook_wrappers,
         options = option_definitions,
         drawn = drawn,
+        ui_shapes = ui_shapes,
         submitted_intents = submitted_intents,
         pushes = pushes,
     }
@@ -278,7 +309,12 @@ local function make_environment(game_id, initial_cache, language)
         for index = #drawn, 1, -1 do drawn[index] = nil end
     end
     function env:draw_screen(screen)
-        screen:draw()
+        ui_draw_target = drawn
+        ui_shape_target = ui_shapes
+        local ok, draw_error = pcall(function() screen:draw() end)
+        ui_draw_target = nil
+        ui_shape_target = nil
+        if not ok then error(draw_error, 0) end
     end
     function env:run_hook(name, next_result, ...)
         local callback = hook_wrappers[name]
@@ -809,6 +845,84 @@ for game_id, game_title in pairs(game_titles) do
             game_id .. "/" .. language .. ": START menu label was not localized")
     end
 end
+
+-- Match the real Game3 owner: it has generation=3, a nil save while
+-- playing, and keeps the selected version on session.version. Ruby-family
+-- games also have a distinct 240x160 drawing surface and must never use the
+-- legacy Game Boy tile-font path.
+local function check_gen3_screen(game_id, version_field)
+    local env = make_environment(game_id)
+    env.game.generation = 3
+    env.game.data = { generation = 3 }
+    env.game.save = nil
+    if version_field == "game.version" then
+        env.game.version = game_id
+        env.game.session = nil
+    else
+        env.game.version = nil
+        env.game.session = { version = game_id }
+    end
+
+    local screen = env.screens[screen_id].new(env.game)
+    check(screen.gbaCanvas == true,
+        game_id .. ": Gen 3 screen did not request the full GBA canvas")
+    local original_font = love.graphics.getFont()
+    local rendered = rendered_text(env, screen)
+    check(rendered:find(game_titles[game_id], 1, true) ~= nil,
+        game_id .. ": Game3 version was not resolved from " .. version_field)
+    check(rendered:find("CONQUISTAS", 1, true) ~= nil,
+        game_id .. ": GBA renderer did not draw the localized title")
+    check(rendered:find("PROGRESSO 0/" .. catalog_counts[game_id], 1, true) ~= nil,
+        game_id .. ": Game3 profile used the wrong generation/game catalog")
+    check(rendered:find("< TODAS >", 1, true) ~= nil,
+        game_id .. ": GBA renderer did not draw the filter label")
+    check(#env.ui_shapes >= 5,
+        game_id .. ": GBA screen did not draw its background and panel")
+    local full_canvas = false
+    for _, shape in ipairs(env.ui_shapes) do
+        if shape.mode == "fill" and shape.x == 0 and shape.y == 0
+            and shape.width == 240 and shape.height == 160 then
+            full_canvas = true
+            break
+        end
+    end
+    check(full_canvas, game_id .. ": background did not cover the 240x160 GBA screen")
+    check(love.graphics.getFont() == original_font,
+        game_id .. ": GBA achievement screen leaked its font")
+
+    env:press("right")
+    screen:update(0)
+    rendered = rendered_text(env, screen)
+    check(rendered:find("< DESBLOQUEADAS >", 1, true) ~= nil
+        and rendered:find("AINDA SEM CONQUISTAS", 1, true) ~= nil,
+        game_id .. ": GBA unlocked filter did not display its empty state")
+
+    env:press("right")
+    screen:update(0)
+    rendered = rendered_text(env, screen)
+    check(rendered:find("< BLOQUEADAS >", 1, true) ~= nil
+        and rendered:find("AINDA SEM CONQUISTAS", 1, true) == nil,
+        game_id .. ": GBA locked filter did not display the catalog")
+
+    env:press("a")
+    screen:update(0)
+    rendered = rendered_text(env, screen)
+    check(rendered:find("BLOQUEADA", 1, true) ~= nil
+        and rendered:find("B: VOLTAR", 1, true) ~= nil,
+        game_id .. ": A did not open an achievement detail on the GBA screen")
+
+    env:press("b")
+    screen:update(0)
+    rendered = rendered_text(env, screen)
+    check(rendered:find("< BLOQUEADAS >", 1, true) ~= nil,
+        game_id .. ": B did not return to the GBA achievement list")
+end
+
+check_gen3_screen("firered", "game.session.version")
+check_gen3_screen("leafgreen", "game.session.version")
+check_gen3_screen("ruby", "game.session.version")
+check_gen3_screen("sapphire", "game.version")
+check_gen3_screen("emerald", "game.session.version")
 
 -- Secret achievements remain hidden in the detail screen until their live
 -- event is received. Opening or browsing the list must not grant them.
