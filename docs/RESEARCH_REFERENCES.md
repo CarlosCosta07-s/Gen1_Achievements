@@ -122,3 +122,38 @@ Não existem conquistas para Mystery Gift, Eon Ticket, Aurora Ticket, Mystic Tic
 - Capturas especiais usam `pokemon.caught`; evolução e aprendizado de golpes usam eventos dedicados.
 - Recursos de Johto e Gen 3 (ovos, amizade e Pokérus) só aparecem nos jogos em que a API declara esses eventos.
 - Bug-Catching Contest, Unown e Apricorns só aparecem em Gold, Silver e Crystal.
+
+## Segunda rodada — objetivos de identidade por título
+
+Esta rodada acrescenta um objetivo de assinatura a cada jogo. O objetivo não é apenas trocar o nome de uma conquista comum: cada registro usa um Pokémon, uma mecânica ou uma área compatível com a versão. As condições continuam restritas a eventos que a Portable Mod API 3 já expõe e que o contrato do repositório valida.
+
+### Pokémon Red, Blue e Yellow
+
+- **A Charge from the Power Plant** — captura de Electabuzz, espécie exclusiva de Red no par Red/Blue. Referência: https://pokemondb.net/red-blue/exclusive
+- **A Flame in the Mansion** — captura de Magmar, espécie exclusiva de Blue no par Red/Blue. Referência: https://pokemondb.net/red-blue/exclusive
+- **A Partner for the Long Road** — acumular 15 eventos de subida de nível do Pikachu parceiro em Yellow. O contrato já expõe `pokemon.level_up` com o campo normalizado `mon.species`; a conquista amplia a progressão do parceiro sem depender de um evento de captura que não representa a obtenção inicial dele. Referência técnica: `tests/engine_event_contract.json`.
+
+### Pokémon Gold, Silver e Crystal
+
+- **A Fighting Spirit in Johto** — captura de Mankey em Gold, espécie disponível na versão Gold e ausente em Silver. Referência: https://pokemondb.net/gold-silver/exclusive
+- **The Ice Path Courier** — captura de Delibird em Silver, associado à Ice Path e distinto do objetivo de Gold. Referência: https://pokemondb.net/gold-silver/exclusive
+- **First Step into the Battle Tower** — entrar no mapa `BATTLE_TOWER_1F` em Crystal. A Torre de Batalha é conteúdo introduzido em Crystal; o identificador do mapa está confirmado nos testes e nos dados de mundo do Gen1Recomp. Referências: https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Crystal_Version e https://github.com/bryanthaboi/gen1recomp/blob/dev/tests/crystal_world_test.lua
+
+### Pokémon FireRed e LeafGreen
+
+- **A Visitor from Johto** — captura de Wooper em FireRed, espécie exclusiva dessa versão no par FireRed/LeafGreen. Referência: https://www.poketools.com/firered/version-exclusives
+- **The Slowpoke of Seafoam** — captura de Slowpoke em LeafGreen, espécie exclusiva dessa versão no par FireRed/LeafGreen. Referência: https://www.poketools.com/leafgreen/version-exclusives
+
+### Pokémon Ruby, Sapphire e Emerald
+
+- **The Stripes of Route 114** — captura de Zangoose em Ruby, espécie exclusiva de Ruby no par Ruby/Sapphire. Referência: https://pokemondb.net/ruby-sapphire/exclusive
+- **A Venomous Rival in Hoenn** — captura de Seviper em Sapphire, espécie exclusiva de Sapphire no par Ruby/Sapphire. Referência: https://pokemondb.net/ruby-sapphire/exclusive
+- **Admission to the Battle Tower** — entrar no saguão da Battle Tower dentro da Battle Frontier em Emerald. Emerald substitui a Battle Tower isolada de Ruby/Sapphire pela Battle Frontier, que contém uma instalação Battle Tower. Referências: https://bulbapedia.bulbagarden.net/wiki/Battle_Frontier e https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Emerald_Version
+
+### Regras técnicas da rodada
+
+- Capturas usam apenas `pokemon.caught.species`, um campo normalizado pelo motor em todas as gerações.
+- O marco de Yellow usa `pokemon.level_up.mon.species` e só progride nos eventos reais do Pikachu parceiro.
+- Crystal e Emerald usam `map.entered.mapId` com sufixo estável, sem depender dos prefixos variáveis de mapa.
+- Nenhuma das novas conquistas depende de ROM modificada, varredura de save, troca, Mystery Gift, ticket de distribuição ou jogo online.
+- Os testes verificam que cada um dos onze títulos tem um contrato de assinatura próprio e que as condições dessas onze conquistas não são duplicadas entre si.
