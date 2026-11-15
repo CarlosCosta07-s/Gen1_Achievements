@@ -412,6 +412,15 @@ check(#rows > 0, "the achievement catalog is empty")
 for _, row in ipairs(rows) do
     local game_id, achievement_id = row[1], row[2]
     local env = make_environment(game_id)
+    if game_id == "firered" or game_id == "leafgreen" or game_id == "ruby"
+        or game_id == "sapphire" or game_id == "emerald" then
+        -- Exercise the real Game3 shape throughout every Hoenn/Kanto-remake
+        -- event test: no save.version, with the title on session.version.
+        env.game.generation = 3
+        env.game.data = { generation = 3 }
+        env.game.save = nil
+        env.game.session = { version = game_id }
+    end
     env:dispatch("game.ready", { game = env.game })
 
     env:dispatch(row[3], make_event(row, env, 1, true))
@@ -887,6 +896,11 @@ local function check_gen3_screen(game_id, version_field)
         end
     end
     check(full_canvas, game_id .. ": background did not cover the 240x160 GBA screen")
+    local used_gba_font = false
+    for _, item in ipairs(env.drawn) do
+        if item.font_size == 8 then used_gba_font = true end
+    end
+    check(used_gba_font, game_id .. ": GBA screen did not use its dedicated pixel font")
     check(love.graphics.getFont() == original_font,
         game_id .. ": GBA achievement screen leaked its font")
 
