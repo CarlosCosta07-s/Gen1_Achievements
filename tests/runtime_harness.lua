@@ -432,7 +432,13 @@ local function make_environment(game_id, initial_cache, language)
         mod.log[level] = function(_, ...)
             if level == "warn" then
                 local message = { ... }
-                log_warnings[#log_warnings + 1] = tostring(message[1])
+                local rendered = tostring(message[1])
+                if #message > 1 then
+                    local ok, formatted = pcall(string.format, rendered, unpack(message, 2))
+                    if ok then rendered = formatted
+                    else rendered = rendered .. " | " .. tostring(message[2]) end
+                end
+                log_warnings[#log_warnings + 1] = rendered
             end
         end
     end
