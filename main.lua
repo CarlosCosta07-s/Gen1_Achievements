@@ -1490,6 +1490,8 @@ return function(mod)
         notice = nil,
     }
     local battle_intent_id = 0
+    local native_battle_assets
+    local battle_generation_for
 
     local function is_owned_battle_prompt(snapshot)
         if type(snapshot) ~= "table" then return false end
@@ -1503,6 +1505,12 @@ return function(mod)
             or snapshot.prompt == "target"
             or snapshot.prompt == "mimic"
             or snapshot.prompt == "safari"
+    end
+
+    local function battle_ui_can_render(game, snapshot)
+        return is_owned_battle_prompt(snapshot)
+            and type(native_battle_assets) == "function"
+            and native_battle_assets(game) ~= nil
     end
 
     local function read_battle_snapshot()
@@ -1681,7 +1689,7 @@ return function(mod)
             sync_battle_ui(game, snapshot)
             return false
         end
-        if not is_owned_battle_prompt(snapshot) then
+        if not battle_ui_can_render(game, snapshot) then
             sync_battle_ui(game, snapshot)
             return false
         end
@@ -1774,7 +1782,7 @@ return function(mod)
         -- reinterpreting the same button in the next prompt.
         local snapshot = type(capturedSnapshot) == "table"
             and capturedSnapshot or read_battle_snapshot()
-        if not is_owned_battle_prompt(snapshot) then return false end
+        if not battle_ui_can_render(game, snapshot) then return false end
         sync_battle_ui(game, snapshot)
         local count = battle_entry_count(snapshot, game)
         if action == "a" then
@@ -1787,7 +1795,18 @@ return function(mod)
         elseif action == "left" or action == "right"
             or action == "up" or action == "down" then
             if count <= 0 then return true end
-            battle_ui.cursor = battle_grid_cursor(battle_ui.cursor, count, action)
+            local generation = battle_generation_for and battle_generation_for(game) or 1
+            local verticalMenu = generation < 3
+                and (snapshot.prompt == "moves" or snapshot.prompt == "mimic")
+            if verticalMenu then
+                if action == "up" then
+                    battle_ui.cursor = ((battle_ui.cursor - 2) % count) + 1
+                elseif action == "down" then
+                    battle_ui.cursor = (battle_ui.cursor % count) + 1
+                end
+            else
+                battle_ui.cursor = battle_grid_cursor(battle_ui.cursor, count, action)
+            end
             return true
         end
         -- A mapped action belongs to the replacement menu even when it has
@@ -1887,7 +1906,7 @@ return function(mod)
             return
         end
 
-        if is_owned_battle_prompt(snapshot) then
+        if battle_ui_can_render(game, snapshot) then
             sync_battle_ui(game, snapshot)
             mask_native_battle_touch_input(input)
         else
@@ -1899,7 +1918,7 @@ return function(mod)
             local down = touch_button_down(input, button)
             local wasDown = battle_ui.touch_down[button] == true
             local tapped = touchEdges[button] == true
-            if is_owned_battle_prompt(snapshot) and ((down and not wasDown) or tapped) then
+            if battle_ui_can_render(game, snapshot) and ((down and not wasDown) or tapped) then
                 local action = BATTLE_TOUCH_ACTIONS[button]
                 if action == "up" or action == "down"
                     or action == "left" or action == "right" then
@@ -1930,477 +1949,519 @@ return function(mod)
         end)
     end
 
-    local function battle_theme(game)
+    local BATTLE_TYPE_IDS = {
+        NORMAL = 0, FIGHTING = 1, FLYING = 2, POISON = 3,
+        GROUND = 4, ROCK = 5, BUG = 6, GHOST = 7, STEEL = 8,
+        MYSTERY = 9, FIRE = 10, WATER = 11, GRASS = 12,
+        ELECTRIC = 13, PSYCHIC = 14, ICE = 15, DRAGON = 16, DARK = 17,
+    }
+
+    local native_battle_asset_cache = {}
+
+    battle_generation_for = function(game)
         local id = game_id_from(game) or "red"
-        return BATTLE_THEMES[id] or BATTLE_THEMES.red
+        if GEN3_GAME_IDS[id] then return 3 end
+        if id == "gold" or id == "silver" or id == "crystal" then return 2 end
+        return 1
     end
 
-    local function battle_hp_values(mon)
-        if type(mon) ~= "table" then return nil end
-        local currentHp = tonumber(mon.hp)
-        local maximumHp = tonumber(mon.maxHp)
-        if currentHp == nil or maximumHp == nil
-            or currentHp ~= currentHp or maximumHp ~= maximumHp
-            or currentHp == math.huge or currentHp == -math.huge
-            or maximumHp == math.huge or maximumHp == -math.huge
-            or maximumHp < 1 then
+    native_battle_assets = function(game)
+        local gameId = game_id_from(game) or "red"
+        local cached = native_battle_asset_cache[gameId]
+        if cached then return cached end
+
+        local generation = battle_generation_for(game)
+        if generation < 3 then
+            local font = mod.ui and mod.ui.Font
+            if type(font) ~= "table"
+                or type(font.draw) ~= "function"
+                or type(font.drawBox) ~= "function"
+                or type(font.drawCode) ~= "function" then
+                return nil
+            end
+
+            local context = {
+                generation = generation,
+                gameId = gameId,
+                font = font,
+            }
+            if generation == 2 then
+                local ok, chrome = pcall(require, "src.ui.gen2.Chrome")
+                if ok and type(chrome) == "table" then context.chrome2 = chrome end
+            end
+            native_battle_asset_cache[gameId] = context
+            return context
+        end
+
+        -- Resolve the active title's ROM-backed UI modules from Gen1Recomp.
+        -- No sprites, fonts, frame atlases or other extracted files are copied
+        -- into this mod or its release package.
+        local okProfile, profileApi = pcall(require, "src.core.game3.profile")
+        if not okProfile or type(profileApi) ~= "table"
+            or type(profileApi.forSession) ~= "function" then
             return nil
         end
-        local maxValue = math.floor(maximumHp)
-        if maxValue < 1 then return nil end
-        return math.max(0, math.min(maxValue, math.floor(currentHp))), maxValue
+        local session = type(game) == "table" and game.session or nil
+        if type(session) ~= "table" then session = { version = gameId } end
+        local okRow, profile = pcall(profileApi.forSession, session)
+        if not okRow or type(profile) ~= "table"
+            or type(profile.font) ~= "table"
+            or type(profile.font.module) ~= "string" then
+            return nil
+        end
+
+        local okFont, font = pcall(require, profile.font.module)
+        local okChrome, chrome = pcall(require, "src.ui.game3.battle_chrome")
+        local okWindow, window = pcall(require, "src.ui.game3.window")
+        local okRomText, romText = pcall(require, "src.core.game3.rom_text")
+        local okTypes, types = pcall(require, "src.core.game3.battle.types")
+        if not okFont or type(font) ~= "table" or type(font.draw) ~= "function"
+            or not okChrome or type(chrome) ~= "table"
+            or type(chrome.drawPanel) ~= "function"
+            or type(chrome.layout) ~= "function"
+            or not okWindow or type(window) ~= "table"
+            or type(window.cursorPx) ~= "function" then
+            return nil
+        end
+
+        if type(chrome.ensureInstalled) == "function" then
+            local okInstall = pcall(chrome.ensureInstalled)
+            if not okInstall then return nil end
+        end
+        -- If the native textbox texture is unavailable, leave the original
+        -- engine panel visible and let the engine continue owning its menu.
+        if chrome._textbox == nil then return nil end
+
+        local context = {
+            generation = 3,
+            gameId = gameId,
+            profile = profile,
+            font = font,
+            chrome = chrome,
+            window = window,
+            romText = okRomText and romText or nil,
+            types = okTypes and types or nil,
+            layout = chrome.layout(),
+        }
+        if context.layout == "rs" then
+            local okCursor, cursor = pcall(require, "src.ui.game3.rs.menu_cursor")
+            if okCursor and type(cursor) == "table"
+                and type(cursor.draw) == "function" then
+                context.rsCursor = cursor
+            end
+        end
+        native_battle_asset_cache[gameId] = context
+        return context
     end
 
-    local function battle_hp_ratio(mon)
-        local currentHp, maximumHp = battle_hp_values(mon)
-        if currentHp == nil or maximumHp == nil then return nil end
-        return currentHp / maximumHp
+    local function native_battle_box(assets, x, y, width, height)
+        if assets.generation == 2 and assets.chrome2
+            and type(assets.chrome2.paletteBox) == "function" then
+            return assets.chrome2.paletteBox(x / 8, y / 8, width / 8, height / 8)
+        end
+        return assets.font.drawBox(x / 8, y / 8, width / 8, height / 8)
     end
 
-    local function battle_hp_color(ratio)
-        if ratio >= 0.5 then return { 0.24, 0.72, 0.38, 1 } end
-        if ratio >= 0.2 then return { 0.90, 0.70, 0.24, 1 } end
-        return { 0.84, 0.27, 0.25, 1 }
+    local function native_battle_text(assets, value, x, y, opts)
+        value = tostring(value or "")
+        if assets.generation == 3 then
+            return assets.font.draw(value, x, y, opts or {})
+        end
+        if assets.generation == 2 and assets.chrome2
+            and type(assets.chrome2.print) == "function" then
+            return assets.chrome2.print(value, x / 8, y / 8)
+        end
+        if love and love.graphics and love.graphics.setColor then
+            love.graphics.setColor(0, 0, 0, 1)
+        end
+        return assets.font.draw(value, x, y)
     end
 
-    local function battle_layout(snapshot, viewport, theme, entries)
+    local function native_battle_cursor(assets, x, y, width)
+        if assets.generation == 3 then
+            if assets.layout == "rs" and assets.rsCursor then
+                return assets.rsCursor.draw(x, y, width or 42)
+            end
+            return assets.window.cursorPx(x, y)
+        end
+        if assets.generation == 2 and assets.chrome2
+            and type(assets.chrome2.cursor) == "function" then
+            return assets.chrome2.cursor(x / 8, y / 8)
+        end
+        return assets.font.drawCode(0xED, x, y)
+    end
+
+    local function native_game_text(assets, key, fallback)
+        if assets.generation == 3 and assets.romText
+            and type(assets.romText.plain) == "function" then
+            local ok, value = pcall(assets.romText.plain, key)
+            if ok and type(value) == "string" and value ~= "" then return value end
+        end
+        return fallback
+    end
+
+    local function native_move_type(assets, value)
+        local name = tostring(value or ""):upper()
+        local typeId = BATTLE_TYPE_IDS[name]
+        if assets.generation == 3 and typeId ~= nil
+            and assets.types and type(assets.types.name) == "function" then
+            local ok, localized = pcall(assets.types.name, typeId)
+            if ok and type(localized) == "string" and localized ~= "" then
+                return localized
+            end
+        end
+        return name
+    end
+
+    local function add_native_battle_button(buttons, index, textX, textY,
+        cursorX, cursorY, width, height)
+        buttons[#buttons + 1] = {
+            index = index,
+            x = cursorX,
+            y = cursorY,
+            w = width,
+            h = height,
+            textX = textX,
+            textY = textY,
+            cursorX = cursorX,
+            cursorY = cursorY,
+        }
+    end
+
+    local function native_battle_layout(game, snapshot, viewport, assets, entries)
         local scale = tonumber(viewport.scale) or 1
         if scale <= 0 then scale = 1 end
-        local width = (tonumber(viewport.gameWidth) or 160 * scale) / scale
-        local height = (tonumber(viewport.gameHeight) or 144 * scale) / scale
-        local actorName
-        local actorHp, actorMaxHp
-        if snapshot.double == true and type(snapshot.player) == "table" then
-            actorName = snapshot.player.name or snapshot.player.species
-            actorHp, actorMaxHp = battle_hp_values(snapshot.player)
-        end
-        local showDoubleActor = type(actorName) == "string" and actorName ~= ""
-        local showActorHp = showDoubleActor and actorHp ~= nil and actorMaxHp ~= nil
-        local showTargetHp = false
-        if snapshot.prompt == "target" then
-            for _, battler in ipairs(snapshot.battlers or {}) do
-                if target_index(snapshot.targets, battler.id) ~= nil
-                    and battle_hp_ratio(battler) ~= nil then
-                    showTargetHp = true
-                    break
-                end
-            end
-        end
-        local panel_height = (snapshot.prompt == "moves" or snapshot.prompt == "target"
-            or snapshot.prompt == "mimic") and 62 or 52
-        if showDoubleActor then
-            -- The second actor row is reserved only when public HP values exist.
-            -- A missing/invalid HP field leaves the previous compact header intact.
-            panel_height = panel_height + (showActorHp and 12 or 3)
-        end
-        if showTargetHp then
-            -- Leave room for a thin health meter between each target name and role chip.
-            panel_height = panel_height + 8
-        end
-        panel_height = math.min(panel_height, height - 18)
-        local panel = {
-            x = 5, y = height - panel_height - 4,
-            -- Android virtual B can cover the extreme right edge of the
-            -- game viewport. Keep a small safe gutter on every platform.
-            w = math.max(80, width - 20), h = panel_height,
-        }
-        local gap = width >= 200 and 5 or 3
-        local header = showActorHp and 19 or showDoubleActor and 13 or 10
-        local content_y = panel.y + header + 3
-        local content_h = panel.h - header - 7
-        local buttons = {}
-
-        if snapshot.prompt == "menu" or snapshot.prompt == "moves"
-            or snapshot.prompt == "mimic" or snapshot.prompt == "safari" then
-            local cell_w = (panel.w - 10 - gap) / 2
-            local cell_h = (content_h - gap) / 2
-            for index = 1, math.min(4, #entries) do
-                local row = math.floor((index - 1) / 2)
-                local column = (index - 1) % 2
-                buttons[index] = {
-                    x = panel.x + 5 + column * (cell_w + gap),
-                    y = content_y + row * (cell_h + gap),
-                    w = cell_w,
-                    h = cell_h,
-                    index = index,
-                }
-            end
-        elseif snapshot.prompt == "target" then
-            local targets = snapshot.targets or {}
-            local cell_w = (panel.w - 10 - gap) / 2
-            local cell_h = (content_h - gap) / 2
-            for index = 1, math.min(4, #targets) do
-                local row = math.floor((index - 1) / 2)
-                local column = (index - 1) % 2
-                buttons[index] = {
-                    x = panel.x + 5 + column * (cell_w + gap),
-                    y = content_y + row * (cell_h + gap),
-                    w = cell_w,
-                    h = cell_h,
-                    index = index,
-                }
-            end
-        end
-
-        local backButton
-        if snapshot.prompt == "moves" or snapshot.prompt == "target" then
-            backButton = {
-                x = panel.x + panel.w * 0.40,
-                y = panel.y,
-                w = panel.w * 0.58,
-                h = header + 5,
-            }
-        end
-
-        return {
-            panel = panel,
-            buttons = buttons,
-            backButton = backButton,
+        local width = assets.generation == 3 and 240 or 160
+        local height = assets.generation == 3 and 160 or 144
+        local layout = {
+            generation = assets.generation,
+            gameId = assets.gameId,
+            assetLayout = assets.layout,
             width = width,
             height = height,
             scale = scale,
             originX = tonumber(viewport.gameX) or 0,
             originY = tonumber(viewport.gameY) or 0,
-            theme = theme,
             prompt = snapshot.prompt,
             revision = snapshot.revision,
-            showDoubleActor = showDoubleActor,
-            actorName = actorName,
-            showActorHp = showActorHp,
-            showTargetHp = showTargetHp,
-            actorHp = actorHp,
-            actorMaxHp = actorMaxHp,
+            buttons = {},
         }
-    end
+        local buttons = layout.buttons
+        local prompt = snapshot.prompt
 
-    local function draw_battle_text(graphics, value, x, y, width, align, color, size_limit, text_scale)
-        value = tostring(value or "")
-        if size_limit then value = clip_text(value, size_limit, mod.ui.Font) end
-        local scale = tonumber(text_scale) or 1
-        if scale <= 0 or scale > 1 then scale = 1 end
-        graphics.setColor(color[1], color[2], color[3], color[4] or 1)
-        if graphics.printf then
-            -- Keep the rendered text inside the same logical width while
-            -- scaling long labels down to fit low-resolution move cards.
-            local printWidth = scale < 1 and width / scale or width
-            graphics.printf(value, x, y, printWidth, align or "left", 0, scale, scale)
+        if assets.generation < 3 then
+            if prompt == "menu" then
+                layout.panel = { x = 64, y = 96, w = 96, h = 48 }
+                local positions = {
+                    { 80, 112, 72, 112 }, { 128, 112, 120, 112 },
+                    { 80, 128, 72, 128 }, { 128, 128, 120, 128 },
+                }
+                for i = 1, math.min(4, #entries) do
+                    local p = positions[i]
+                    add_native_battle_button(buttons, i, p[1], p[2], p[3], p[4], 40, 16)
+                end
+            elseif prompt == "safari" then
+                layout.panel = { x = 0, y = 96, w = 160, h = 48 }
+                local positions = {
+                    { 16, 112, 8, 112 }, { 96, 112, 88, 112 },
+                    { 16, 128, 8, 128 }, { 96, 128, 88, 128 },
+                }
+                for i = 1, math.min(4, #entries) do
+                    local p = positions[i]
+                    add_native_battle_button(buttons, i, p[1], p[2], p[3], p[4], 72, 16)
+                end
+            elseif prompt == "moves" then
+                layout.panel = { x = 0, y = 64, w = 160, h = 80 }
+                for i = 1, math.min(4, #entries) do
+                    local y = 96 + i * 8
+                    add_native_battle_button(buttons, i, 48, y, 40, y, 80, 8)
+                end
+            elseif prompt == "mimic" then
+                layout.panel = { x = 0, y = 56, w = 128, h = 48 }
+                for i = 1, math.min(4, #entries) do
+                    local y = (7 + i) * 8
+                    add_native_battle_button(buttons, i, 16, y, 8, y, 112, 8)
+                end
+            end
         else
-            graphics.print(value, x, y, 0, scale, scale)
+            layout.panel = { x = 0, y = 112, w = 240, h = 48 }
+            local isAction = prompt == "menu" or prompt == "safari"
+            local isTarget = prompt == "target"
+            local isMove = prompt == "moves" or prompt == "mimic" or isTarget
+            if isAction then
+                if assets.layout == "emerald" then
+                    local W = assets.chrome.WIN or {}
+                    local mx, my = assets.chrome.textOrigin(W.ACTION_MENU)
+                    for i = 1, math.min(4, #entries) do
+                        local row, column = math.floor((i - 1) / 2), (i - 1) % 2
+                        local cursorX = 8 * (7 * column + 16)
+                        local y = my + 16 * row
+                        add_native_battle_button(buttons, i, mx + 56 * column,
+                            y, cursorX, y, 48, 16)
+                    end
+                elseif assets.layout == "rs" then
+                    for i = 1, math.min(4, #entries) do
+                        local row, column = math.floor((i - 1) / 2), (i - 1) % 2
+                        local x, y = 144 + 46 * column, 120 + 16 * row
+                        add_native_battle_button(buttons, i, x, y, x, y, 42, 16)
+                    end
+                else
+                    local positions = {
+                        { 136, 122, 128, 122 }, { 192, 122, 184, 122 },
+                        { 136, 138, 128, 138 }, { 192, 138, 184, 138 },
+                    }
+                    for i = 1, math.min(4, #entries) do
+                        local p = positions[i]
+                        add_native_battle_button(buttons, i, p[1], p[2],
+                            p[3], p[4], 48, 16)
+                    end
+                end
+            elseif isMove then
+                local count = isTarget and #(snapshot.targets or {}) or #entries
+                if assets.layout == "emerald" then
+                    local W = assets.chrome.WIN or {}
+                    local x, firstY = assets.chrome.textOrigin(W.MOVE_NAME_1)
+                    for i = 1, math.min(4, count) do
+                        local row, column = math.floor((i - 1) / 2), (i - 1) % 2
+                        local y = firstY + 16 * row
+                        local cursorX = 8 * (9 * column + 1)
+                        add_native_battle_button(buttons, i, x + 72 * column,
+                            y, cursorX, y, 72, 16)
+                    end
+                elseif assets.layout == "rs" then
+                    local positions = {
+                        { 8, 120 }, { 88, 120 }, { 8, 136 }, { 88, 136 },
+                    }
+                    for i = 1, math.min(4, count) do
+                        local p = positions[i]
+                        add_native_battle_button(buttons, i, p[1], p[2],
+                            p[1], p[2], 72, 16)
+                    end
+                else
+                    local positions = {
+                        { 16, 122, 8, 122 }, { 88, 122, 80, 122 },
+                        { 16, 138, 8, 138 }, { 88, 138, 80, 138 },
+                    }
+                    for i = 1, math.min(4, count) do
+                        local p = positions[i]
+                        add_native_battle_button(buttons, i, p[1], p[2],
+                            p[3], p[4], 72, 16)
+                    end
+                end
+            end
+        end
+
+        return layout
+    end
+
+    local function draw_native_battle_frame(assets, snapshot)
+        local prompt = snapshot.prompt
+        if assets.generation == 3 then
+            local mode = (prompt == "menu" or prompt == "safari") and "menu" or "moves"
+            assets.chrome.drawPanel(mode)
+            if type(assets.chrome.drawMenuFrames) == "function" then
+                assets.chrome.drawMenuFrames(mode)
+            end
+            return
+        end
+
+        if prompt == "menu" then
+            native_battle_box(assets, 64, 96, 96, 48)
+        elseif prompt == "safari" then
+            native_battle_box(assets, 0, 96, 160, 48)
+        elseif prompt == "moves" then
+            native_battle_box(assets, 0, 64, 88, 40)
+            native_battle_box(assets, 32, 96, 128, 48)
+        elseif prompt == "mimic" then
+            native_battle_box(assets, 0, 56, 128, 48)
         end
     end
 
-    local function battle_text_width(value)
-        value = tostring(value or "")
-        local font = mod.ui.Font
-        if font and type(font.measure) == "function" then
-            local ok, width = pcall(font.measure, value)
-            if ok and type(width) == "number" and width == width
-                and width ~= math.huge and width ~= -math.huge and width >= 0 then
-                return width
+    local function draw_native_battle_moves(assets, snapshot, dictionary, layout)
+        local entries = snapshot.prompt == "mimic"
+            and (snapshot.mimicMoves or {}) or (snapshot.moves or {})
+        for index, button in ipairs(layout.buttons) do
+            if index == battle_ui.cursor then
+                native_battle_cursor(assets, button.cursorX, button.cursorY,
+                    assets.layout == "rs" and 72 or nil)
             end
+            local move = entries[index] or {}
+            local label = move.name or move.id or "-"
+            native_battle_text(assets, clip_text(label,
+                assets.generation == 3 and 15 or 10, mod.ui.Font),
+                button.textX, button.textY,
+                assets.generation == 3 and { small = true } or nil)
         end
-        return glyph_count(value, font) * 8
+
+        if snapshot.prompt == "mimic" then return end
+        local selected = entries[battle_ui.cursor]
+        if not selected then
+            local emptyText = dictionary.battle_no_moves or "SEM GOLPES"
+            native_battle_text(assets, emptyText,
+                assets.generation == 3 and 16 or 48,
+                assets.generation == 3 and 122 or 112,
+                assets.generation == 3 and { small = true } or nil)
+            return
+        end
+
+        local pp = tonumber(selected.pp) or 0
+        local maxPp = tonumber(selected.maxPp) or pp
+        local typeName = tostring(selected.type or "")
+        if assets.generation < 3 then
+            native_battle_text(assets, (dictionary.battle_type or "TIPO") .. "/", 8, 72)
+            native_battle_text(assets, typeName, 16, 80)
+            native_battle_text(assets, "PP", 32, 88)
+            native_battle_text(assets, ("%2d/%2d"):format(pp, maxPp), 48, 88)
+            return
+        end
+
+        typeName = native_move_type(assets, typeName)
+        local ppLabel = native_game_text(assets, "gText_MoveInterfacePP", "PP")
+        local typeLabel = native_game_text(assets, "gText_MoveInterfaceType",
+            dictionary.battle_type or "TIPO")
+
+        if assets.layout == "emerald" then
+            local W = assets.chrome.WIN or {}
+            local px, py, _, ppNarrow = assets.chrome.textOrigin(W.PP)
+            local vx, vy, _, valueNarrow = assets.chrome.textOrigin(W.PP_REMAINING)
+            local tx, ty, _, typeNarrow = assets.chrome.textOrigin(W.MOVE_TYPE)
+            native_battle_text(assets, ppLabel, px, py,
+                ppNarrow and { font = "narrow" } or nil)
+            native_battle_text(assets, ("%2d/%2d"):format(pp, maxPp), vx, vy,
+                valueNarrow and { font = "narrow" } or nil)
+            native_battle_text(assets, typeLabel .. typeName, tx, ty,
+                typeNarrow and { font = "narrow" } or nil)
+        elseif assets.layout == "rs" then
+            native_battle_text(assets, ppLabel, 184, 120, {})
+            native_battle_text(assets, ("%2d/%2d"):format(pp, maxPp), 200, 120, {})
+            native_battle_text(assets, typeLabel .. typeName, 184, 136, {})
+        else
+            native_battle_text(assets, ppLabel, 168, 122, { small = true })
+            native_battle_text(assets, ("%2d/%2d"):format(pp, maxPp), 202, 122, {})
+            native_battle_text(assets, typeLabel .. typeName, 168, 138, { small = true })
+        end
     end
 
-    local function draw_battle_card(graphics, rect, label, theme, selected, disabled, metadata)
-        local background = disabled and { 0.72, 0.73, 0.75, 1 }
-            or selected and theme.accent
-            or { 0.94, 0.95, 0.97, 1 }
-        local foreground = selected and { 1, 1, 1, 1 }
-            or disabled and { 0.38, 0.39, 0.41, 1 }
-            or { 0.10, 0.12, 0.16, 1 }
-
-        graphics.setColor(background[1], background[2], background[3], background[4])
-        graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
-        graphics.setColor(selected and { 1, 1, 1, 1 } or theme.shade[1],
-            selected and 1 or theme.shade[2],
-            selected and 1 or theme.shade[3], 1)
-        graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, theme.radius, theme.radius)
-        if metadata and metadata.targetCursor == true then
-            -- A narrow inner rail marks only the target currently under the
-            -- cursor; it does not claim that other battlers are illegal targets.
-            graphics.setColor(1, 1, 1, 1)
-            graphics.rectangle("fill", rect.x + 2, rect.y + 2,
-                2, math.max(1, rect.h - 4), theme.radius, theme.radius)
+    local function draw_native_battle_targets(assets, snapshot, dictionary, layout)
+        local targets = snapshot.targets or {}
+        local byId = {}
+        for _, battler in ipairs(snapshot.battlers or {}) do
+            byId[battler.id] = battler
         end
-
-        local statusChip
-        if metadata and type(metadata.status) == "string" then
-            statusChip = BATTLE_STATUS_CHIPS[metadata.status:upper()]
-        end
-        local statusWidth = statusChip and 22 or 0
-        local text_width = rect.w - 8 - (statusWidth > 0 and statusWidth + 4 or 0)
-        local label_scale = math.min(1, text_width / math.max(1,
-            battle_text_width(label)))
-        draw_battle_text(graphics, label, rect.x + 4, rect.y + 2,
-            text_width, "left", foreground, 13, label_scale)
-
-        if statusChip then
-            local chipX, chipY = rect.x + rect.w - statusWidth - 4, rect.y + 2
-            graphics.setColor(statusChip.color[1], statusChip.color[2],
-                statusChip.color[3], statusChip.color[4])
-            graphics.rectangle("fill", chipX, chipY, statusWidth, 7,
-                theme.radius, theme.radius)
-            draw_battle_text(graphics, statusChip.label, chipX + 1, chipY,
-                statusWidth - 2, "center", { 1, 1, 1, 1 }, 9, 1)
-        end
-
-        if metadata and type(metadata.hpRatio) == "number" then
-            local ratio = math.max(0, math.min(1, metadata.hpRatio))
-            local meterX, meterY = rect.x + 6, rect.y + 10
-            local meterW, meterH = math.max(8, rect.w - 12), 3
-            graphics.setColor(0.16, 0.18, 0.22, 1)
-            graphics.rectangle("fill", meterX, meterY, meterW, meterH,
-                theme.radius, theme.radius)
-            local fillW = (meterW - 2) * ratio
-            if fillW > 0 then
-                local meterColor = battle_hp_color(ratio)
-                graphics.setColor(meterColor[1], meterColor[2],
-                    meterColor[3], meterColor[4])
-                graphics.rectangle("fill", meterX + 1, meterY + 1,
-                    fillW, 1, theme.radius, theme.radius)
+        for index, button in ipairs(layout.buttons) do
+            local targetId = targets[index]
+            local target = byId[targetId]
+            if index == battle_ui.cursor then
+                native_battle_cursor(assets, button.cursorX, button.cursorY,
+                    assets.layout == "rs" and 72 or nil)
             end
-            graphics.setColor(theme.shade[1], theme.shade[2],
-                theme.shade[3], 1)
-            graphics.rectangle("line", meterX, meterY, meterW, meterH,
-                theme.radius, theme.radius)
-        end
+            local name = target and (target.name or target.species)
+                or ("TARGET " .. tostring(targetId))
+            native_battle_text(assets, clip_text(name, 13, mod.ui.Font),
+                button.textX, button.textY, { small = true })
 
-        local metaY = rect.y + rect.h - 10
-        local chipWidth = 0
-        if metadata and metadata.type then
-            local typeLabel = tostring(metadata.type):upper()
-            local typeColor = BATTLE_TYPE_COLORS[typeLabel] or theme.accent
-            chipWidth = math.min(37, math.max(24, rect.w * 0.34))
-            local chipX = rect.x + 4
-            local chipHeight = 7
-            graphics.setColor(typeColor[1], typeColor[2], typeColor[3], 1)
-            graphics.rectangle("fill", chipX, metaY, chipWidth, chipHeight,
-                theme.radius, theme.radius)
-            local typeScale = math.min(1, (chipWidth - 4) / math.max(1,
-                battle_text_width(typeLabel)))
-            draw_battle_text(graphics, typeLabel, chipX + 1, metaY,
-                chipWidth - 2, "center", { 1, 1, 1, 1 }, 8, typeScale)
-        elseif metadata and metadata.tag then
-            local tagLabel = tostring(metadata.tag):upper()
-            chipWidth = math.min(42, math.max(20,
-                glyph_count(tagLabel, mod.ui.Font) * 5 + 6))
-            local chipX = rect.x + 4
-            local chipHeight = 7
-            graphics.setColor(theme.shade[1], theme.shade[2], theme.shade[3], 1)
-            graphics.rectangle("fill", chipX, metaY, chipWidth, chipHeight,
-                theme.radius, theme.radius)
-            local tagScale = math.min(1, (chipWidth - 4) / math.max(1,
-                battle_text_width(tagLabel)))
-            draw_battle_text(graphics, tagLabel, chipX + 1, metaY,
-                chipWidth - 2, "center", { 1, 1, 1, 1 }, 9, tagScale)
+            local details = {}
+            if target and type(target.side) == "string" then
+                local role = target.side == "player"
+                    and (tonumber(targetId) == tonumber(snapshot.active)
+                        and dictionary.battle_target_active or dictionary.battle_target_ally)
+                    or dictionary.battle_target_foe
+                if role and role ~= "" then details[#details + 1] = role end
+            end
+            if target then
+                local hp, maxHp = battle_hp_values(target)
+                if hp ~= nil and maxHp ~= nil then
+                    details[#details + 1] = ("%d/%d"):format(hp, maxHp)
+                end
+                local status = type(target.status) == "string"
+                    and BATTLE_STATUS_CHIPS[target.status:upper()] or nil
+                if status then details[#details + 1] = status.label end
+            end
+            if #details > 0 then
+                native_battle_text(assets, table.concat(details, " "),
+                    button.textX, button.textY + 8, { small = true })
+            end
         end
+    end
 
-        -- The public UnifiedBattle facade normalizes absent PP to zero.
-        -- Keep the UI aligned with that contract instead of inventing an
-        -- "unknown" state that cannot reach a mod through this facade.
-        if metadata and metadata.showPp then
-            local pp = tonumber(metadata.pp) or 0
-            local maxPp = tonumber(metadata.maxPp) or pp
-            local ppText = ("PP %s/%s"):format(tostring(pp), tostring(maxPp))
-            local ppWidth = math.max(16, rect.w - (chipWidth > 0 and chipWidth + 14 or 8))
-            local ppX = rect.x + rect.w - 4 - ppWidth
-            local ppScale = math.min(1, ppWidth / math.max(1,
-                battle_text_width(ppText)))
-            draw_battle_text(graphics, ppText, ppX, metaY, ppWidth,
-                "right", foreground, 9, ppScale)
+    local function draw_native_battle_actions(assets, snapshot, dictionary, layout, entries)
+        for index, button in ipairs(layout.buttons) do
+            if index == battle_ui.cursor then
+                native_battle_cursor(assets, button.cursorX, button.cursorY,
+                    assets.layout == "rs" and 42 or nil)
+            end
+            local action = entries[index]
+            local key = action and action.label or "battle_choose"
+            local label = dictionary[key] or key:upper()
+            native_battle_text(assets, label, button.textX, button.textY,
+                assets.generation == 3 and {} or nil)
+        end
+        if snapshot.prompt == "safari" and tonumber(snapshot.safariBalls) ~= nil then
+            local countText = (dictionary.battle_safari_balls or "BOLAS")
+                .. " " .. tostring(math.max(0, math.floor(snapshot.safariBalls)))
+            native_battle_text(assets, countText, 8,
+                assets.generation == 3 and 112 or 104,
+                assets.generation == 3 and { small = true } or nil)
         end
     end
 
     local function draw_battle_overlay(game, viewport, snapshot)
         local graphics = love and love.graphics
-        if not (graphics and graphics.push and graphics.pop and graphics.rectangle
-            and graphics.setColor and graphics.print) then
-            return
+        if not (graphics and graphics.push and graphics.pop
+            and graphics.translate and graphics.scale) then
+            return false
         end
-        local theme = battle_theme(game)
+        local assets = native_battle_assets(game)
+        if not assets then return false end
+
         sync_battle_ui(game, snapshot)
         local entries = battle_entries_for(snapshot, game)
-        local layout = battle_layout(snapshot, viewport, theme, entries)
+        local layout = native_battle_layout(game, snapshot, viewport, assets, entries)
         battle_ui.layout = layout
         battle_ui.snapshot = snapshot
 
         local ok, drawError = pcall(function()
             graphics.push("all")
-            graphics.translate(tonumber(viewport.gameX) or 0,
-                tonumber(viewport.gameY) or 0)
+            graphics.translate(layout.originX, layout.originY)
             graphics.scale(layout.scale, layout.scale)
-
-            local panel = layout.panel
-            graphics.setColor(0.055, 0.065, 0.085, 1)
-            graphics.rectangle("fill", panel.x, panel.y, panel.w, panel.h,
-                theme.radius + 2, theme.radius + 2)
-            graphics.setColor(theme.accent[1], theme.accent[2], theme.accent[3], 1)
-            graphics.rectangle("fill", panel.x, panel.y, 3, panel.h,
-                theme.radius, theme.radius)
+            graphics.setColor(1, 1, 1, 1)
+            draw_native_battle_frame(assets, snapshot)
 
             local dictionary = TEXT[selected_language()] or TEXT[DEFAULT_LANGUAGE]
-            local title = snapshot.prompt == "menu" and dictionary.battle_action
-                or snapshot.prompt == "moves" and dictionary.battle_moves
-                or snapshot.prompt == "target" and dictionary.battle_target
-                or snapshot.prompt == "mimic" and dictionary.battle_mimic
-                or dictionary.battle_safari
-            local titleWidth = panel.w * 0.34
-            local titleScale = math.min(1, titleWidth
-                / math.max(1, battle_text_width(title or "ACTION")))
-            draw_battle_text(graphics, title or "ACTION", panel.x + 7,
-                panel.y + 2, titleWidth, "left", { 1, 1, 1, 1 }, 12, titleScale)
+            if snapshot.prompt == "menu" or snapshot.prompt == "safari" then
+                draw_native_battle_actions(assets, snapshot, dictionary, layout, entries)
+            elseif snapshot.prompt == "moves" or snapshot.prompt == "mimic" then
+                draw_native_battle_moves(assets, snapshot, dictionary, layout)
+            elseif snapshot.prompt == "target" then
+                draw_native_battle_targets(assets, snapshot, dictionary, layout)
+            end
+
             local notice = battle_ui.notice
-            local noticeVisible = notice
-                and notice.prompt == snapshot.prompt
+            local noticeVisible = notice and notice.prompt == snapshot.prompt
                 and notice.revision == snapshot.revision
                 and (tonumber(notice.remaining) or 0) > 0
-            local help = noticeVisible and dictionary[notice.key]
-                or (snapshot.prompt == "moves" or snapshot.prompt == "target")
-                    and (dictionary.battle_back or "B: BACK")
-                or snapshot.prompt == "safari"
-                    and ((dictionary.battle_safari_balls or "BALLS") .. ": "
-                        .. tostring(tonumber(snapshot.safariBalls) or 0))
-                or (dictionary.battle_select or "A: SELECT")
-            local helpWidth = panel.w * 0.56
-            local helpScale = math.min(1,
-                helpWidth / math.max(1, battle_text_width(help)))
-            draw_battle_text(graphics, help, panel.x + panel.w * 0.40,
-                panel.y + 2, helpWidth, "right",
-                noticeVisible and { 1, 0.68, 0.42, 1 }
-                    or { 0.82, 0.85, 0.90, 1 },
-                noticeVisible and 32 or 14, helpScale)
-            if layout.showDoubleActor then
-                local actorLabel = (dictionary.battle_active or "ACTIVE")
-                    .. ": " .. tostring(layout.actorName)
-                if layout.showActorHp then
-                    local actorWidth = panel.w * 0.60
-                    local actorScale = math.min(1, actorWidth / math.max(1,
-                        battle_text_width(actorLabel)))
-                    draw_battle_text(graphics, actorLabel, panel.x + 7,
-                        panel.y + 10, actorWidth, "left",
-                        { 0.72, 0.77, 0.84, 1 }, 25, actorScale)
-
-                    local hpText = ("HP %d/%d"):format(
-                        layout.actorHp, layout.actorMaxHp
-                    )
-                    local hpWidth = panel.w * 0.28
-                    local hpScale = math.min(1, hpWidth / math.max(1,
-                        battle_text_width(hpText)))
-                    draw_battle_text(graphics, hpText,
-                        panel.x + panel.w * 0.66, panel.y + 10,
-                        hpWidth, "right", { 0.92, 0.94, 0.97, 1 },
-                        9, hpScale)
-
-                    -- HP remains an observation from the public snapshot. It is
-                    -- never written back or used to influence battle decisions.
-                    local meterX, meterY = panel.x + 7, panel.y + 18
-                    local meterW, meterH = panel.w - 14, 3
-                    local ratio = layout.actorHp / layout.actorMaxHp
-                    local meterColor = battle_hp_color(ratio)
-                    graphics.setColor(0.16, 0.18, 0.22, 1)
-                    graphics.rectangle("fill", meterX, meterY, meterW, meterH,
-                        theme.radius, theme.radius)
-                    local fillW = (meterW - 2) * ratio
-                    if fillW > 0 then
-                        graphics.setColor(meterColor[1], meterColor[2],
-                            meterColor[3], meterColor[4])
-                        graphics.rectangle("fill", meterX + 1, meterY + 1,
-                            fillW, 1, theme.radius, theme.radius)
-                    end
-                    graphics.setColor(theme.shade[1], theme.shade[2],
-                        theme.shade[3], 1)
-                    graphics.rectangle("line", meterX, meterY, meterW, meterH,
-                        theme.radius, theme.radius)
-                else
-                    draw_battle_text(graphics, actorLabel, panel.x + 7,
-                        panel.y + 10, panel.w - 14, "left",
-                        { 0.72, 0.77, 0.84, 1 }, 25)
-                end
+            if noticeVisible then
+                native_battle_text(assets, dictionary[notice.key] or "",
+                    8, assets.generation == 3 and 112 or 96,
+                    assets.generation == 3 and { small = true } or nil)
             end
-
-            for index, rect in ipairs(layout.buttons) do
-                local selected = index == battle_ui.cursor
-                if snapshot.prompt == "menu" then
-                    local action = entries[index]
-                    local key = action and action.label or "battle_choose"
-                    local label = dictionary[key] or key:upper()
-                    draw_battle_card(graphics, rect, label, theme, selected, false)
-                elseif snapshot.prompt == "safari" then
-                    local action = entries[index]
-                    local key = action and action.label or "battle_choose"
-                    local label = dictionary[key] or key:upper()
-                    local noBalls = (tonumber(snapshot.safariBalls) or 0) <= 0
-                    draw_battle_card(graphics, rect, label, theme, selected, noBalls)
-                elseif snapshot.prompt == "mimic" then
-                    local move = entries[index] or {}
-                    draw_battle_card(graphics, rect, move.name or move.id or "—",
-                        theme, selected, false)
-                elseif snapshot.prompt == "moves" then
-                    local move = entries[index] or {}
-                    local name = move.name or move.id or "—"
-                    local movePp = tonumber(move.pp) or 0
-                    local disabled = move.disabled == true or movePp <= 0
-                    draw_battle_card(graphics, rect, name, theme, selected, disabled, {
-                        type = move.type,
-                        pp = movePp,
-                        maxPp = tonumber(move.maxPp) or movePp,
-                        showPp = true,
-                    })
-                elseif snapshot.prompt == "target" then
-                    local targetId = snapshot.targets and snapshot.targets[index]
-                    local target
-                    for _, candidate in ipairs(snapshot.battlers or {}) do
-                        if candidate.id == targetId then target = candidate break end
-                    end
-                    local name = target and (target.name or target.species) or ("TARGET " .. tostring(targetId))
-                    local roleKey
-                    if target and target.side == "player" then
-                        roleKey = tonumber(targetId) == tonumber(snapshot.active)
-                            and "battle_target_active" or "battle_target_ally"
-                    elseif target and target.side == "enemy" then
-                        roleKey = "battle_target_foe"
-                    end
-                    local role = roleKey and dictionary[roleKey] or nil
-                    local hpRatio = target and battle_hp_ratio(target) or nil
-                    local status = target and target.status or nil
-                    local metadata
-                    if role ~= nil or hpRatio ~= nil or status ~= nil or selected then
-                        metadata = {
-                            tag = role,
-                            hpRatio = hpRatio,
-                            status = status,
-                            targetCursor = selected,
-                        }
-                    end
-                    draw_battle_card(graphics, rect, tostring(name),
-                        theme, selected, target and target.absent == true, metadata)
-                end
-            end
-
-            if (snapshot.prompt == "moves" or snapshot.prompt == "mimic")
-                and #layout.buttons == 0 then
-                local emptyText = snapshot.prompt == "mimic"
-                    and (dictionary.battle_no_mimic_moves or dictionary.battle_no_moves)
-                    or dictionary.battle_no_moves
-                draw_battle_text(graphics, emptyText or "NO USABLE MOVES",
-                    panel.x + 8, panel.y + 24, panel.w - 16,
-                    "left", { 1, 1, 1, 1 }, 22)
-            end
-
             graphics.pop()
         end)
         if not ok then
             pcall(graphics.pop)
-            mod.log:warn("Battle UI draw failed: %s", tostring(drawError))
+            battle_ui.layout = nil
+            mod.log:warn("Native battle UI draw failed: %s", tostring(drawError))
+            return false
         end
+        return true
     end
 
     if mod:supports("hooks", "battle.bottom_ui_visible") then
         mod.hooks:wrap("battle.bottom_ui_visible", function(next, state)
             local visible = next(state)
             local snapshot = read_battle_snapshot()
-            if is_owned_battle_prompt(snapshot) then return false end
+            local ownerGame = (type(state) == "table" and state.game) or active_game
+            if battle_ui_can_render(ownerGame, snapshot) then return false end
             return visible
         end)
     end
@@ -2411,7 +2472,7 @@ return function(mod)
                 return next(game, event)
             end
             local snapshot = read_battle_snapshot()
-            if not is_owned_battle_prompt(snapshot) then return next(game, event) end
+            if not battle_ui_can_render(game, snapshot) then return next(game, event) end
             local input = game and game.input
             local action = input and input.keyBindings
                 and input.keyBindings[event.key]
@@ -2425,7 +2486,7 @@ return function(mod)
         mod.hooks:wrap("input.gamepad", function(next, game, event)
             if type(event) ~= "table" then return next(game, event) end
             local snapshot = read_battle_snapshot()
-            if not is_owned_battle_prompt(snapshot) then
+            if not battle_ui_can_render(game, snapshot) then
                 battle_ui.axis_action = nil
                 return next(game, event)
             end
@@ -2477,7 +2538,7 @@ return function(mod)
             end
 
             local snapshot = read_battle_snapshot()
-            if not is_owned_battle_prompt(snapshot) then return next(game, event) end
+            if not battle_ui_can_render(game, snapshot) then return next(game, event) end
             if event.phase ~= "pressed" then
                 return battle_ui.pointer_captures[pointerKey] == true
             end
@@ -2582,8 +2643,11 @@ return function(mod)
             next(game, viewport)
             if viewport then
                 local snapshot = read_battle_snapshot()
-                if is_owned_battle_prompt(snapshot) then
-                    draw_battle_overlay(game, viewport, snapshot)
+                if battle_ui_can_render(game, snapshot) then
+                    if not draw_battle_overlay(game, viewport, snapshot) then
+                        restore_battle_touch_input(game and game.input)
+                        battle_ui.layout = nil
+                    end
                 else
                     restore_battle_touch_input(game and game.input)
                     battle_ui.layout = nil
