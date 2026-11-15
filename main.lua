@@ -2276,6 +2276,8 @@ return function(mod)
         end
     end
 
+    local draw_native_active_actor
+
     local function draw_native_battle_moves(assets, snapshot, dictionary, layout)
         if snapshot.prompt == "moves" then
             draw_native_active_actor(assets, snapshot, dictionary)
@@ -2357,7 +2359,7 @@ return function(mod)
         return math.max(0, math.min(maximum, math.floor(hp))), maximum
     end
 
-    local function draw_native_active_actor(assets, snapshot, dictionary)
+    draw_native_active_actor = function(assets, snapshot, dictionary)
         if snapshot.double ~= true or type(snapshot.player) ~= "table" then return end
         local name = snapshot.player.name or snapshot.player.species
         if type(name) ~= "string" or name == "" then return end
