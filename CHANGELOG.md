@@ -1,3 +1,10 @@
+## 0.5.22 — Distribuição unificada do mod
+
+- Removido o pacote independente Fullscreen Fit do fluxo de distribuição; o ajuste de viewport já faz parte de `main.lua` e do ZIP principal do Gen1 Achievements.
+- O pacote público contém somente o mod completo e seu checksum, sem induzir a instalação de um segundo mod para ajustar a tela.
+- A validação do viewport continua integrada ao runtime harness, incluindo proporções 10:9 e 3:2, desktop, Android retrato/paisagem, DPI e viewports compostos.
+- Mantida a opção Fullscreen/Borderless nativa do Gen1Recomp para remover a moldura da janela do sistema no PC.
+
 ## 0.5.21 — Tipografia legível e ajuste de tela integrado
 
 - Integrado ao Gen1 Achievements o ajuste de viewport antes fornecido apenas pelo addon separado; a instalação do mod principal agora basta para usar a maior área disponível.
