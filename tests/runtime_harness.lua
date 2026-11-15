@@ -277,6 +277,7 @@ local function make_environment(game_id, initial_cache, language)
     local write_count = 0
     local fail_writes = false
     local pop_count = 0
+    local log_warnings = {}
     local selected_language = language or "pt-BR"
     local battle_snapshot = nil
     local submitted_intents = {}
@@ -428,7 +429,12 @@ local function make_environment(game_id, initial_cache, language)
     }
     mod.log = {}
     for _, level in ipairs({ "info", "warn", "error" }) do
-        mod.log[level] = function() end
+        mod.log[level] = function(_, ...)
+            if level == "warn" then
+                local message = { ... }
+                log_warnings[#log_warnings + 1] = tostring(message[1])
+            end
+        end
     end
     function mod:supports(surface, name)
         if surface == "events" then return true end
@@ -467,6 +473,7 @@ local function make_environment(game_id, initial_cache, language)
         ui_shapes = ui_shapes,
         submitted_intents = submitted_intents,
         pushes = pushes,
+        warnings = log_warnings,
     }
     function env:dispatch(name, payload)
         payload = payload or {}
@@ -1604,16 +1611,23 @@ local command_env = make_environment("red")
 command_env:set_battle_snapshot(move_snapshot)
 for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
 command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
-local renderedMoves = {}
+local renderedMoves, drawKinds = {}, {}
 for _, call in ipairs(battle_draw_calls) do
+    drawKinds[#drawKinds + 1] = tostring(call.kind)
     if call.kind == "text" then renderedMoves[#renderedMoves + 1] = call.value end
 end
 local moveText = table.concat(renderedMoves, "\n")
+local nativePanelStillVisible = command_env:run_hook(
+    "battle.bottom_ui_visible", true, { game = command_env.game }
+)
 check(moveText:find("THUNDERBOLT", 1, true) ~= nil
     and moveText:find("ELECTRIC", 1, true) ~= nil
     and moveText:find("PP", 1, true) ~= nil
     and moveText:find("15/15", 1, true) ~= nil,
-    "native move selector omitted the move, type or PP details; rendered=[" .. moveText .. "]")
+    "native move selector omitted the move, type or PP details; rendered=["
+        .. moveText .. "], calls=[" .. table.concat(drawKinds, ",")
+        .. "], nativePanelStillVisible=" .. tostring(nativePanelStillVisible)
+        .. ", warnings=[" .. table.concat(command_env.warnings, ";") .. "]")
 command_env:run_hook(
     "input.gamepad", nil, command_env.game, { phase = "pressed", button = "a" }
 )
