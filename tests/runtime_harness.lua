@@ -11,7 +11,138 @@ local function check(condition, message)
     if not condition then fail(message) end
 end
 
-local fake_graphics_color = { 1, 1, 1, 1 }
+local battle_draw_calls = {}
+local active_battle_game_version
+
+-- Small engine-renderer fakes: the harness verifies which original Gen1Recomp
+-- APIs the mod calls, without bundling or inventing any ROM-derived graphics.
+package.preload["src.ui.gen2.Chrome"] = function()
+    return {
+        paletteBox = function(tx, ty, tw, th)
+            battle_draw_calls[#battle_draw_calls + 1] = {
+                kind = "asset_box", generation = 2, x = tx, y = ty, w = tw, h = th,
+            }
+        end,
+        print = function(value, tx, ty)
+            battle_draw_calls[#battle_draw_calls + 1] = {
+                kind = "text", generation = 2, renderer = "native-font",
+                value = tostring(value), x = tx * 8, y = ty * 8,
+            }
+        end,
+        cursor = function(tx, ty)
+            battle_draw_calls[#battle_draw_calls + 1] = {
+                kind = "asset_glyph", generation = 2, x = tx * 8, y = ty * 8,
+            }
+        end,
+    }
+end
+
+package.preload["src.core.game3.profile"] = function()
+    return {
+        forSession = function(session)
+            active_battle_game_version = session and session.version or "firered"
+            return {
+                id = active_battle_game_version,
+                font = { module = "tests.gen3_native_font" },
+            }
+        end,
+    }
+end
+
+package.preload["tests.gen3_native_font"] = function()
+    return {
+        draw = function(value, x, y, opts)
+            battle_draw_calls[#battle_draw_calls + 1] = {
+                kind = "text", generation = 3, renderer = "native-gba-font",
+                value = tostring(value), x = x, y = y, opts = opts,
+            }
+        end,
+        measure = function(value) return #tostring(value) * 6 end,
+    }
+end
+
+package.preload["src.ui.game3.battle_chrome"] = function()
+    local WIN = {
+        ACTION_PROMPT = 1, ACTION_MENU = 2,
+        MOVE_NAME_1 = 3, MOVE_NAME_2 = 4, MOVE_NAME_3 = 5, MOVE_NAME_4 = 6,
+        PP = 7, PP_REMAINING = 8, MOVE_TYPE = 9,
+    }
+    local chrome = { WIN = WIN, _textbox = true }
+    function chrome.ensureInstalled() chrome._textbox = true end
+    function chrome.layout()
+        if active_battle_game_version == "ruby"
+            or active_battle_game_version == "sapphire" then return "rs" end
+        if active_battle_game_version == "emerald" then return "emerald" end
+        return "frlg"
+    end
+    function chrome.drawPanel(mode)
+        battle_draw_calls[#battle_draw_calls + 1] = {
+            kind = "native_panel", generation = 3, mode = mode,
+            layout = chrome.layout(),
+        }
+    end
+    function chrome.drawMenuFrames(mode)
+        battle_draw_calls[#battle_draw_calls + 1] = {
+            kind = "native_frames", generation = 3, mode = mode,
+            layout = chrome.layout(),
+        }
+    end
+    function chrome.textOrigin(id)
+        local rows = {
+            [WIN.ACTION_PROMPT] = { 16, 120, 104, false },
+            [WIN.ACTION_MENU] = { 128, 120, 112, false },
+            [WIN.MOVE_NAME_1] = { 8, 120, 72, false },
+            [WIN.MOVE_NAME_2] = { 88, 120, 72, false },
+            [WIN.MOVE_NAME_3] = { 8, 136, 72, false },
+            [WIN.MOVE_NAME_4] = { 88, 136, 72, false },
+            [WIN.PP] = { 184, 120, 16, false },
+            [WIN.PP_REMAINING] = { 200, 120, 32, false },
+            [WIN.MOVE_TYPE] = { 184, 136, 56, false },
+        }
+        local row = rows[id] or { 0, 120, 0, false }
+        return row[1], row[2], row[3], row[4]
+    end
+    return chrome
+end
+
+package.preload["src.ui.game3.window"] = function()
+    return {
+        cursorPx = function(x, y)
+            battle_draw_calls[#battle_draw_calls + 1] = {
+                kind = "asset_glyph", generation = 3, x = x, y = y,
+                renderer = "gba-native-cursor",
+            }
+        end,
+    }
+end
+
+package.preload["src.ui.game3.rs.menu_cursor"] = function()
+    return {
+        draw = function(x, y, width)
+            battle_draw_calls[#battle_draw_calls + 1] = {
+                kind = "asset_glyph", generation = 3, x = x, y = y, w = width,
+                renderer = "ruby-sapphire-native-cursor",
+            }
+        end,
+    }
+end
+
+package.preload["src.core.game3.rom_text"] = function()
+    return {
+        plain = function(key)
+            return key == "gText_MoveInterfacePP" and "PP" or "TYPE"
+        end,
+    }
+end
+
+package.preload["src.core.game3.battle.types"] = function()
+    local names = {
+        [0] = "NORMAL", [10] = "FIRE", [11] = "WATER",
+        [12] = "GRASS", [13] = "ELECTRIC", [8] = "STEEL",
+    }
+    return { name = function(id) return names[id] or "TYPE" end }
+end
+
 local ui_draw_target
 local ui_shape_target
 local fake_graphics_font = { size = 12 }
@@ -235,19 +366,39 @@ local function make_environment(game_id, initial_cache, language)
     mod.ui = {
         Font = {
             draw = function(value, x, y)
-                local r, g, b, a = love.graphics.getColor()
+                local r, g, b, a = 1, 1, 1, 1
+                if love.graphics and type(love.graphics.getColor) == "function" then
+                    r, g, b, a = love.graphics.getColor()
+                end
+                local printed = tostring(value)
                 drawn[#drawn + 1] = {
-                    text = tostring(value),
+                    text = printed,
                     x = x,
                     y = y,
                     color = { r, g, b, a },
                     renderer = "mod.ui.Font",
                 }
+                battle_draw_calls[#battle_draw_calls + 1] = {
+                    kind = "text", generation = 1, renderer = "native-font",
+                    value = printed, x = x, y = y,
+                }
             end,
-            drawBox = function()
-                local r, g, b, a = love.graphics.getColor()
-                love.graphics.setColor(1, 1, 1, 1)
-                love.graphics.setColor(r, g, b, a)
+            drawBox = function(tx, ty, tw, th)
+                battle_draw_calls[#battle_draw_calls + 1] = {
+                    kind = "asset_box", generation = 1,
+                    x = tx, y = ty, w = tw, h = th,
+                }
+                if love.graphics and type(love.graphics.getColor) == "function"
+                    and type(love.graphics.setColor) == "function" then
+                    local r, g, b, a = love.graphics.getColor()
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.setColor(r, g, b, a)
+                end
+            end,
+            drawCode = function(code, x, y)
+                battle_draw_calls[#battle_draw_calls + 1] = {
+                    kind = "asset_glyph", generation = 1, code = code, x = x, y = y,
+                }
             end,
             measure = function(value) return #tostring(value) * 8 end,
         },
@@ -1319,9 +1470,8 @@ check(battle_party_result[1].action == "switch"
     and battle_party_result[3].action == "cancel",
     "battle party submenu did not put SWITCH first")
 
--- LÖVE draw stub for the vector battle overlay; records text and colors so
--- the visual contract can be exercised without game assets or a ROM.
-local battle_draw_calls = {}
+-- Native UI fakes record original game font, frame and cursor entry points.
+-- They deliberately do not emulate a ROM or paint substitute card graphics.
 local battle_draw_colors = {}
 love = love or {}
 love.graphics = {
@@ -1345,12 +1495,12 @@ love.graphics = {
     end,
     print = function(value, x, y)
         battle_draw_calls[#battle_draw_calls + 1] = {
-            kind = "text", value = tostring(value), x = x, y = y,
+            kind = "graphics_text", value = tostring(value), x = x, y = y,
         }
     end,
     printf = function(value, x, y, w, align, angle, sx, sy)
         battle_draw_calls[#battle_draw_calls + 1] = {
-            kind = "text", value = tostring(value), x = x, y = y,
+            kind = "graphics_text", value = tostring(value), x = x, y = y,
             w = w, align = align, sx = sx or 1, sy = sy or 1,
         }
     end,
@@ -1360,7 +1510,6 @@ local battle_titles = {
     "red", "blue", "yellow", "gold", "silver", "crystal",
     "firered", "leafgreen", "ruby", "sapphire", "emerald",
 }
-local battle_accents = {}
 local base_viewport = {
     width = 160, height = 144, gameX = 0, gameY = 0,
     gameWidth = 160, gameHeight = 144, scale = 1,
@@ -1372,67 +1521,201 @@ local menu_snapshot = {
 }
 for _, game_id in ipairs(battle_titles) do
     for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
-    for index = #battle_draw_colors, 1, -1 do battle_draw_colors[index] = nil end
     local env = make_environment(game_id)
+    if game_id == "firered" or game_id == "leafgreen" or game_id == "ruby"
+        or game_id == "sapphire" or game_id == "emerald" then
+        env.game.session = { version = game_id }
+    end
     env:set_battle_snapshot(menu_snapshot)
     env:run_hook("render.hud", nil, env.game, base_viewport)
-    local joined = {}
+
+    local labels, boxes, panels, frames, glyphs = {}, 0, 0, 0, 0
+    local renderedKinds = {}
     for _, call in ipairs(battle_draw_calls) do
-        if call.kind == "text" then joined[#joined + 1] = call.value end
+        if call.kind == "text" then
+            labels[#labels + 1] = call.value
+            renderedKinds[call.renderer] = true
+        elseif call.kind == "asset_box" then boxes = boxes + 1
+        elseif call.kind == "native_panel" then
+            panels = panels + 1
+            check(call.mode == "menu",
+                game_id .. ": native GBA textbox used the wrong action-menu frame")
+        elseif call.kind == "native_frames" then frames = frames + 1
+        elseif call.kind == "asset_glyph" then glyphs = glyphs + 1
+        elseif call.kind == "rectangle" or call.kind == "graphics_text" then
+            fail(game_id .. ": battle replacement drew generic vector cards or default LÖVE text")
+        end
     end
-    local drawn_text = table.concat(joined, "\n")
+    local drawn_text = table.concat(labels, "\n")
     local is_gen1 = game_id == "red" or game_id == "blue" or game_id == "yellow"
     local is_gen2 = game_id == "gold" or game_id == "silver" or game_id == "crystal"
-    local item_label = is_gen1 and "ITEM" or is_gen2 and "BOLSA" or "BOLSA"
-    check(drawn_text:find("AÇÃO", 1, true) ~= nil
-        and drawn_text:find("A: SELECIONAR", 1, true) ~= nil
-        and drawn_text:find("LUTAR", 1, true) ~= nil
+    local item_label = is_gen1 and "ITEM" or "BOLSA"
+    check(drawn_text:find("LUTAR", 1, true) ~= nil
         and drawn_text:find(item_label, 1, true) ~= nil
         and drawn_text:find("POKEMON", 1, true) ~= nil
         and drawn_text:find("FUGIR", 1, true) ~= nil,
-        game_id .. ": battle action panel omitted a localized action")
+        game_id .. ": native-font action menu omitted an action")
     local fight_pos = drawn_text:find("LUTAR", 1, true)
     local pokemon_pos = drawn_text:find("POKEMON", 1, true)
     local item_pos = drawn_text:find(item_label, 1, true)
     if is_gen1 or is_gen2 then
         check(fight_pos < pokemon_pos and pokemon_pos < item_pos,
-            game_id .. ": Kanto/Johto battle order did not put Pokemon before Item/Pack")
+            game_id .. ": original Kanto/Johto action order changed")
+        check(boxes >= 1 and renderedKinds["native-font"],
+            game_id .. ": original Game Boy frame/font APIs were not used")
+        if is_gen2 then
+            check(boxes >= 1,
+                game_id .. ": Crystal/Gold/Silver native GBC frame was not requested")
+        end
     else
         check(fight_pos < item_pos and item_pos < pokemon_pos,
-            game_id .. ": Hoenn/Kanto-remake battle order did not put Bag before Pokemon")
-    end
-    check(#battle_draw_colors >= 3,
-        game_id .. ": battle panel did not draw its version colors")
-    local panelFound, panelRight = false, nil
-    for _, call in ipairs(battle_draw_calls) do
-        if call.kind == "rectangle" and call.mode == "fill"
-            and call.x == 5 and call.h >= 40 and call.w >= 100 then
-            panelFound, panelRight = true, call.x + call.w
-            break
-        end
-    end
-    check(panelFound and panelRight <= 145,
-        game_id .. ": battle panel did not reserve the right-side touch safe area")
-    if game_id == "emerald" then
-        local helpScale
+            game_id .. ": original Hoenn action order changed")
+        check(panels == 1 and renderedKinds["native-gba-font"],
+            game_id .. ": original GBA panel or active game font was not used")
+        check(frames >= 0 and glyphs >= 1,
+            game_id .. ": original GBA cursor was not used")
+        local expectedLayout = (game_id == "ruby" or game_id == "sapphire")
+            and "rs" or game_id == "emerald" and "emerald" or "frlg"
+        local foundLayout = false
         for _, call in ipairs(battle_draw_calls) do
-            if call.kind == "text" and call.value == "A: SELECIONAR" then
-                helpScale = call.sx
+            if call.kind == "native_panel" and call.layout == expectedLayout then
+                foundLayout = true
             end
         end
-        check(helpScale and helpScale < 1,
-            "long Portuguese battle help text was not scaled to fit its header")
+        check(foundLayout, game_id .. ": native asset profile did not match the selected title")
     end
-    battle_accents[game_id] = battle_draw_colors[2]
 end
-local unique_accents = {}
-for _, color in pairs(battle_accents) do
-    unique_accents[("%.3f/%.3f/%.3f"):format(color[1], color[2], color[3])] = true
+
+-- Move selection remains readable through the same original game font and
+-- keeps type/PP in the original auxiliary window instead of oversized cards.
+local move_snapshot = {
+    prompt = "moves", kind = "wild", revision = 2,
+    player = { name = "PIKACHU" }, enemy = { name = "RATTATA" },
+    party = {}, items = {},
+    moves = {
+        { id = "THUNDERBOLT", name = "THUNDERBOLT", type = "ELECTRIC", slot = 1, pp = 15, maxPp = 15 },
+        { id = "QUICK_ATTACK", name = "QUICK ATTACK", type = "NORMAL", slot = 2, pp = 30, maxPp = 30 },
+        { id = "THUNDER_WAVE", name = "THUNDER WAVE", type = "ELECTRIC", slot = 3, pp = 20, maxPp = 20 },
+        { id = "IRON_TAIL", name = "IRON TAIL", type = "STEEL", slot = 4, pp = 15, maxPp = 15 },
+    },
+}
+local command_env = make_environment("red")
+command_env:set_battle_snapshot(menu_snapshot)
+command_env:run_hook(
+    "input.key", nil, command_env.game, { phase = "pressed", key = "z" }
+)
+check(#command_env:submitted() == 1
+    and command_env:submitted()[1].kind == "menu"
+    and command_env:submitted()[1].choice == "fight"
+    and command_env:submitted()[1].revision == 1,
+    "keyboard A did not submit the Fight command against the current revision")
+command_env:set_battle_snapshot(move_snapshot)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
+local renderedMoves = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then renderedMoves[#renderedMoves + 1] = call.value end
 end
-local accent_count = 0
-for _ in pairs(unique_accents) do accent_count = accent_count + 1 end
-check(accent_count >= 8,
-    "the eleven game variants did not retain distinct battle accent palettes")
+local moveText = table.concat(renderedMoves, "\n")
+check(moveText:find("THUNDERBOLT", 1, true) ~= nil
+    and moveText:find("ELECTRIC", 1, true) ~= nil
+    and moveText:find("PP", 1, true) ~= nil
+    and moveText:find("15/15", 1, true) ~= nil,
+    "native move selector omitted the move, type or PP details")
+command_env:run_hook(
+    "input.gamepad", nil, command_env.game, { phase = "pressed", button = "a" }
+)
+check(#command_env:submitted() == 2
+    and command_env:submitted()[2].kind == "move"
+    and command_env:submitted()[2].slot == 1
+    and command_env:submitted()[2].revision == 2,
+    "gamepad A did not submit the selected move slot")
+
+local no_moves_snapshot = {
+    prompt = "moves", kind = "wild", revision = 3,
+    player = {}, enemy = {}, party = {}, items = {}, moves = {},
+}
+command_env:set_battle_snapshot(no_moves_snapshot)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+command_env:run_hook("render.hud", nil, command_env.game, base_viewport)
+local emptyText = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then emptyText[#emptyText + 1] = call.value end
+end
+check(table.concat(emptyText, "\n"):find("SEM GOLPES USÁVEIS", 1, true) ~= nil,
+    "empty native move menu did not show its localized empty state")
+
+-- Gen 3 keeps each game's ROM font/panel but preserves sparse native move slots.
+local gen3_move_env = make_environment("emerald")
+gen3_move_env.game.session = { version = "emerald" }
+local gen3_move_snapshot = {
+    prompt = "moves", kind = "wild", revision = 1,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "HIDDEN_POWER", name = "HIDDEN POWER", type = "DARK",
+            slot = 3, pp = 10, maxPp = 10 },
+    },
+}
+gen3_move_env:set_battle_snapshot(gen3_move_snapshot)
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+gen3_move_env:run_hook("render.hud", nil, gen3_move_env.game, base_viewport)
+local gen3MoveText = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then gen3MoveText[#gen3MoveText + 1] = call.value end
+end
+local gen3Rendered = table.concat(gen3MoveText, "\n")
+check(gen3Rendered:find("PP", 1, true) ~= nil
+    and gen3Rendered:find("10/10", 1, true) ~= nil,
+    "Gen 3 original move PP interface was not rendered")
+gen3_move_env:run_hook(
+    "input.key", nil, gen3_move_env.game, { phase = "pressed", key = "z" }
+)
+check(#gen3_move_env:submitted() == 1
+    and gen3_move_env:submitted()[1].kind == "move"
+    and gen3_move_env:submitted()[1].slot == 3,
+    "Gen 3 move was submitted using its visual index instead of its native slot")
+
+-- Missing/zero PP remains visible in the original info window and cannot be used.
+local normalized_pp_env = make_environment("emerald")
+normalized_pp_env.game.session = { version = "emerald" }
+normalized_pp_env:set_battle_snapshot({
+    prompt = "moves", kind = "wild", revision = 1,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "UNKNOWN_PP", name = "UNKNOWN PP", type = "NORMAL",
+            slot = 2, pp = 0, maxPp = 0 },
+    },
+})
+for index = #battle_draw_calls, 1, -1 do battle_draw_calls[index] = nil end
+normalized_pp_env:run_hook("render.hud", nil, normalized_pp_env.game, base_viewport)
+local normalizedPpText = {}
+for _, call in ipairs(battle_draw_calls) do
+    if call.kind == "text" then normalizedPpText[#normalizedPpText + 1] = call.value end
+end
+check(table.concat(normalizedPpText, "\n"):find("0/0", 1, true) ~= nil,
+    "normalized missing PP was not visible in the native info window")
+normalized_pp_env:run_hook(
+    "input.key", nil, normalized_pp_env.game, { phase = "pressed", key = "z" }
+)
+check(#normalized_pp_env:submitted() == 0,
+    "a move with normalized zero PP was incorrectly enabled")
+
+-- Known zero PP remains disabled and cannot be submitted.
+local exhausted_env = make_environment("emerald")
+exhausted_env.game.session = { version = "emerald" }
+exhausted_env:set_battle_snapshot({
+    prompt = "moves", kind = "wild", revision = 1,
+    player = {}, enemy = {}, party = {}, items = {},
+    moves = {
+        { id = "STRUGGLE_TEST", name = "STRUGGLE TEST", type = "NORMAL",
+            slot = 2, pp = 0, maxPp = 10 },
+    },
+})
+exhausted_env:run_hook(
+    "input.key", nil, exhausted_env.game, { phase = "pressed", key = "z" }
+)
+check(#exhausted_env:submitted() == 0,
+    "a move with known zero PP was incorrectly enabled")
 
 -- Main command selection must submit the validated semantic intent, not
 -- synthesize an engine turn or mutate a save record.
@@ -2021,7 +2304,7 @@ pointer_env:set_battle_snapshot(menu_snapshot)
 pointer_env:run_hook("render.hud", nil, pointer_env.game, base_viewport)
 local inside_consumed = pointer_env:run_hook(
     "input.pointer", false, pointer_env.game,
-    { phase = "pressed", source = "touch", id = 1, gameX = 20, gameY = 108 }
+    { phase = "pressed", source = "touch", id = 1, gameX = 90, gameY = 116 }
 )
 check(inside_consumed == true
     and #pointer_env:submitted() == 1
@@ -2060,14 +2343,14 @@ stale_pointer_env:run_hook("render.hud", nil, stale_pointer_env.game, base_viewp
 stale_pointer_env:set_battle_snapshot(fresh_pointer_moves)
 local stale_phase_pointer = stale_pointer_env:run_hook(
     "input.pointer", false, stale_pointer_env.game,
-    { phase = "pressed", source = "touch", id = 70, gameX = 20, gameY = 100 }
+    { phase = "pressed", source = "touch", id = 70, gameX = 20, gameY = 130 }
 )
 check(stale_phase_pointer == true and #stale_pointer_env:submitted() == 0,
     "a stale target-card touch was reinterpreted after the battle changed to moves")
 stale_pointer_env:run_hook("render.hud", nil, stale_pointer_env.game, base_viewport)
 local fresh_phase_pointer = stale_pointer_env:run_hook(
     "input.pointer", false, stale_pointer_env.game,
-    { phase = "pressed", source = "touch", id = 71, gameX = 20, gameY = 100 }
+    { phase = "pressed", source = "touch", id = 71, gameX = 20, gameY = 130 }
 )
 check(fresh_phase_pointer == true and #stale_pointer_env:submitted() == 1
     and stale_pointer_env:submitted()[1].kind == "move"
@@ -2103,7 +2386,7 @@ stale_revision_pointer_env:run_hook(
 stale_revision_pointer_env:set_battle_snapshot(pointer_target_new)
 local stale_revision_pointer = stale_revision_pointer_env:run_hook(
     "input.pointer", false, stale_revision_pointer_env.game,
-    { phase = "pressed", source = "touch", id = 80, gameX = 20, gameY = 100 }
+    { phase = "pressed", source = "touch", id = 80, gameX = 20, gameY = 130 }
 )
 check(stale_revision_pointer == true
     and #stale_revision_pointer_env:submitted() == 0,
@@ -2121,7 +2404,7 @@ local scaled_viewport = {
 scaled_env:run_hook("render.hud", nil, scaled_env.game, scaled_viewport)
 local scaled_back_consumed = scaled_env:run_hook(
     "input.pointer", false, scaled_env.game,
-    { phase = "pressed", source = "mouse", id = 4, gameX = 260, gameY = 188 }
+    { phase = "pressed", source = "mouse", id = 4, gameX = 136, gameY = 236 }
 )
 check(scaled_back_consumed == true
     and #scaled_env:submitted() == 1
@@ -2206,18 +2489,16 @@ check(non_touch_env.game.input:isDown("a") == true
     and non_touch_env.game.input:wasPressed("a") == true,
     "battle touch bridge masked a non-touch input source")
 
--- The B: BACK header hint is an actual touch target, not decorative text.
+-- B remains the native-game return control; it is no longer a fake header hitbox.
 local back_env = make_environment("red")
 back_env:set_battle_snapshot(move_snapshot)
 back_env:run_hook("render.hud", nil, back_env.game, base_viewport)
-local back_consumed = back_env:run_hook(
-    "input.pointer", false, back_env.game,
-    { phase = "pressed", source = "touch", id = 3, gameX = 110, gameY = 84 }
+back_env:run_hook(
+    "input.key", nil, back_env.game, { phase = "pressed", key = "x" }
 )
-check(back_consumed == true
-    and #back_env:submitted() == 1
+check(#back_env:submitted() == 1
     and back_env:submitted()[1].kind == "back",
-    "touching the B: BACK header did not return from the move selector")
+    "native B input did not return from the move selector")
 
 -- Gen 1's public battle facade exposes Mimic as its own validated
 -- selection phase. The initial native mimic cursor is preserved.
