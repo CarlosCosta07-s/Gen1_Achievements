@@ -1,0 +1,11 @@
+{
+  "id": "fullscreen_fit",
+  "name": "Fullscreen Fit — Aspect Ratio",
+  "version": "1.0.0",
+  "api": 3,
+  "entry": "main.lua",
+  "profile": "content",
+  "category": "UI",
+  "games": ["all"],
+  "description": "Maximizes the game viewport inside the available window while preserving each generation's native aspect ratio. Never stretches game sprites or pixel art."
+}
