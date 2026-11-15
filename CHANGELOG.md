@@ -1,3 +1,13 @@
+## 0.5.18 — Objetivos de assinatura por jogo e texto GBA com métricas reais
+
+- Adicionadas onze conquistas de assinatura, uma para cada título: Electabuzz em Red, Magmar em Blue, progressão do Pikachu parceiro em Yellow, Mankey em Gold, Delibird em Silver, Battle Tower em Crystal, Wooper em FireRed, Slowpoke em LeafGreen, Zangoose em Ruby, Seviper em Sapphire e entrada na Battle Tower da Battle Frontier em Emerald.
+- O catálogo passa a ter 216 conquistas, com 19–20 por jogo e condições exclusivas entre os onze objetivos de assinatura.
+- A tela de conquistas de Gen 3 agora calcula quebra de linhas e truncamento usando a largura real da fonte Plain Pixel ativa, em vez das métricas herdadas da fonte de tiles de Game Boy.
+- O truncamento respeita sequências UTF-8, preservando caracteres acentuados em Português e Espanhol.
+- Reorganizada a lista GBA com espaçamento vertical adicional para manter cinco linhas e o rodapé separados dentro do canvas de 240×160.
+- O validador agora exige a presença e a condição esperada de cada objetivo de assinatura e falha caso duas versões compartilhem a mesma condição de assinatura.
+- O runtime harness verifica o orçamento de largura da tipografia GBA nos três idiomas e nos cinco jogos da terceira geração.
+
 ## 0.5.17 — Texto nítido na tela de conquistas da Gen 3
 
 - Substituída a fonte padrão do LÖVE em 8 px pela fonte Plain Pixel incluída no motor, carregada no tamanho de projeto de 15 px.
